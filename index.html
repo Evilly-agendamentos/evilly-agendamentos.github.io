@@ -251,7 +251,7 @@ const DEFAULT_TEMPLATES = [
   { id: 't9', title: 'Aniversário', text: 'Feliz aniversário, {nome}! 🎉 Desejo muita saúde e muitos sorrisos! Um abraço da Dra. Evilly. 🦷💙' },
   { id: 't10', title: 'Retorno / Revisão', text: 'Olá, {nome}! Já está na hora da sua revisão periódica. 😊 Vamos agendar? Me diga o melhor dia e horário.' }
 ];
-let SETTINGS = { templates: DEFAULT_TEMPLATES, procedures: DEFAULT_PROCS, defaultRemind: 1440, pix: '', clinic: 'Dra. Evilly', defaultDuration: 60 };
+let SETTINGS = { templates: DEFAULT_TEMPLATES, procedures: DEFAULT_PROCS, defaultRemind: 1440, pix: '', clinic: 'Dra. Evilly', defaultDuration: 60, contacts: [] };
 async function loadSettings() {
   const s = await DB.get('settings', 'main');
   if (s) SETTINGS = Object.assign({}, SETTINGS, s.value);
@@ -528,6 +528,7 @@ function apptDetail(a, justCreated) {
       ${a.notes ? `<span class="k">Obs.</span><span>${esc(a.notes)}</span>` : ''}
     </div>
   </div>
+  <button class="btn wa block" id="d-share">📤 Compartilhar agendamento no WhatsApp</button>
   <h2>Mudar situação</h2>
   <div class="btns" id="st-btns" style="margin-top:0">${Object.entries(STATUS).map(([k, [l]]) => `<button class="btn sm ${k === a.status ? 'pri' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
   <h2>WhatsApp</h2>
@@ -547,7 +548,60 @@ function apptDetail(a, justCreated) {
     $('#d-edit', el).onclick = () => { close(); apptForm(a); };
     $('#d-ics', el).onclick = () => downloadICS([a]);
     $('#d-pat', el).onclick = () => { close(); location.hash = '#paciente/' + p.id; };
+    $('#d-share', el).onclick = () => shareSheet('Compartilhar agendamento', opts => apptSummary(a, opts));
     $('#d-again', el).onclick = () => { close(); const n = { ...a }; apptForm(null, a.patientId); setTimeout(() => { const pr = $('#a-proc'); if (pr) { pr.value = 'Retorno'; } }, 50); };
+  });
+}
+
+/* ================= Compartilhar agendamento (ex.: com o professor) ================= */
+function apptSummary(a, opts = {}) {
+  const p = pMap()[a.patientId] || {};
+  const addr = [p.street && `${p.street}${p.number ? ', ' + p.number : ''}`, p.comp, p.district, p.city && `${p.city}${p.uf ? '/' + p.uf : ''}`, p.cep && 'CEP ' + p.cep].filter(Boolean).join(' - ');
+  const lines = [
+    `🦷 *Agendamento*`,
+    `📅 ${fmtDate(a.date)} (${WDL[parseLocal(a.date).getDay()]}) às *${a.time}*${a.duration ? ` · ${a.duration} min` : ''}`,
+    `👤 *${p.name || ''}*${p.birth ? ` · ${age(p.birth)} anos` : ''}`,
+    p.phone && `📞 ${p.phone}`,
+    opts.full && p.cpf && `🪪 CPF: ${p.cpf}`,
+    opts.full && p.birth && `🎂 Nasc.: ${fmtDate(p.birth)}`,
+    opts.full && addr && `🏠 ${addr}`,
+    `🔧 Procedimento: ${a.procedure}`,
+    a.value !== '' && a.value != null && `💰 Valor: ${money(a.value)}`,
+    `💳 Pagamento: ${a.payment || p.payment || '-'}`,
+    p.hasIns ? `🏥 Convênio: ${p.insurance || 'sim'}${opts.full && p.insNumber ? ` (nº ${p.insNumber})` : ''}` : `🏥 Convênio: não`,
+    p.hasXray && `🩻 Possui radiografia`,
+    a.notes && `📝 Obs.: ${a.notes}`,
+    opts.full && p.notes && `⚠️ Saúde/obs. do paciente: ${p.notes}`
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+function daySummary(date, opts = {}) {
+  const list = APPTS.filter(a => a.date === date && a.status !== 'cancelada').sort(byDateTime);
+  const pm = pMap();
+  const head = `🗓️ *Agenda de ${fmtDate(date)}* (${WDL[parseLocal(date).getDay()]}) — ${list.length} consulta(s)`;
+  if (!opts.full) return [head, '', ...list.map(a => { const p = pm[a.patientId] || {}; return `*${a.time}* · ${p.name || ''} — ${a.procedure}${a.value !== '' && a.value != null ? ` (${money(a.value)})` : ''}${p.hasIns && p.insurance ? ` · ${p.insurance}` : ''}${p.phone ? `\n     📞 ${p.phone}` : ''}`; })].join('\n');
+  return [head, ...list.map(a => '\n' + apptSummary(a, opts).replace(/^🦷 \*Agendamento\*\n/, ''))].join('\n');
+}
+// Tela: revisar texto e escolher para quem enviar
+function shareSheet(title, build) {
+  const contacts = SETTINGS.contacts || [];
+  let full = false;
+  openSheet(title, `
+    <div class="toggle" id="sh-mode"><button type="button" data-v="0" class="on">Resumo</button><button type="button" data-v="1">Completo (CPF, endereço...)</button></div>
+    <label>Mensagem (pode editar):</label>
+    <textarea id="sh-text" style="min-height:230px"></textarea>
+    <h2>Enviar para</h2>
+    ${contacts.map(c => `<button class="btn wa block" data-c="${c.id}" style="margin-bottom:8px">💬 ${esc(c.name)}</button>`).join('')}
+    <button class="btn ${contacts.length ? '' : 'wa'} block" id="sh-pick">📱 Escolher contato no WhatsApp</button>
+    <button class="btn block" id="sh-copy" style="margin-top:8px">📋 Copiar texto</button>
+    ${contacts.length ? '' : '<div class="hint" style="text-align:center;margin-top:10px">Dica: cadastre o número do professor em <b>Ajustes → Contatos para compartilhar</b> para enviar com 1 toque.</div>'}`, (el, close) => {
+    const ta = $('#sh-text', el);
+    const fill = () => ta.value = build({ full });
+    fill();
+    $$('#sh-mode button', el).forEach(b => b.onclick = () => { $$('#sh-mode button', el).forEach(x => x.classList.toggle('on', x === b)); full = b.dataset.v === '1'; fill(); });
+    $$('[data-c]', el).forEach(b => b.onclick = () => { const c = contacts.find(x => x.id === b.dataset.c); openWA(c.phone, ta.value); close(); });
+    $('#sh-pick', el).onclick = () => { window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank'); close(); };
+    $('#sh-copy', el).onclick = async () => { try { await navigator.clipboard.writeText(ta.value); toast('Copiado ✓'); } catch { toast('Não foi possível copiar'); } };
   });
 }
 
@@ -673,7 +727,7 @@ function viewAgenda(app) {
     html += `<div class="days" id="days">${days.map(d => { const s = ymd(d); return `<div class="day ${s === agendaDay ? 'on' : ''}" data-d="${s}"><div class="dw">${s === today ? 'hoje' : WD[d.getDay()]}</div><div class="dn">${d.getDate()}</div>${datesWith.has(s) ? '<span class="dot"></span>' : ''}</div>`; }).join('')}</div>`;
     const list = APPTS.filter(a => a.date === agendaDay).sort(byDateTime);
     html += `<h2>${agendaDay === today ? 'Hoje · ' : ''}${fmtLong(agendaDay)}</h2>`;
-    html += list.length ? list.map(a => apptCard(a)).join('') : `<div class="empty"><div class="big">🗓️</div>Nenhuma consulta neste dia.<br><br><button class="btn pri" id="new-here">+ Agendar neste dia</button></div>`;
+    html += list.length ? list.map(a => apptCard(a)).join('') + `<button class="btn block" id="share-day" style="margin-top:4px;color:var(--wa)">📤 Enviar agenda do dia no WhatsApp</button>` : `<div class="empty"><div class="big">🗓️</div>Nenhuma consulta neste dia.<br><br><button class="btn pri" id="new-here">+ Agendar neste dia</button></div>`;
   } else {
     const nowKey = today + new Date().toTimeString().slice(0, 5);
     const list = agendaMode === 'proximas'
@@ -691,6 +745,7 @@ function viewAgenda(app) {
   const j = $('#jump', app); if (j) j.onchange = () => { if (j.value) { agendaDay = j.value; render(); } };
   const gt = $('#go-today', app); if (gt) gt.onclick = () => { agendaDay = today; render(); };
   const nh = $('#new-here', app); if (nh) nh.onclick = () => apptForm();
+  const sd = $('#share-day', app); if (sd) sd.onclick = () => shareSheet('Enviar agenda do dia', opts => daySummary(agendaDay, opts));
   $('#q-pat', app).onclick = () => $('#quick-patient').click();
   $('#q-appt', app).onclick = () => apptForm();
   const an = $('#ask-notif', app); if (an) an.onclick = async () => { await ensureNotifyPermission(); render(); checkReminders(); };
@@ -807,6 +862,13 @@ function viewSettings(app) {
     <select id="s-rem">${REMIND.map(([v, l]) => `<option value="${v}" ${v == SETTINGS.defaultRemind ? 'selected' : ''}>${l}</option>`).join('')}</select>
     <div class="hint">⚠️ Os lembretes do app aparecem quando ele estiver aberto ou em segundo plano. Para garantia total, use “📆 Agenda do celular” na consulta — o alarme fica salvo no calendário do telefone.</div>
   </div>
+  <h2>Contatos para compartilhar</h2>
+  <div class="card">
+    <div class="small muted" style="margin-bottom:6px">Ex.: o professor. Aparecem como botão ao compartilhar um agendamento.</div>
+    ${(SETTINGS.contacts || []).map(c => `<div class="file" style="background:var(--card)"><span class="fi">👤</span><div class="grow"><div class="name small">${esc(c.name)}</div><div class="tiny muted">${esc(c.phone)}</div></div><button class="btn sm danger" data-rmc="${c.id}">✕</button></div>`).join('') || '<div class="hint">Nenhum contato salvo.</div>'}
+    <div class="grid2"><div><label>Nome</label><input id="ct-name" placeholder="Ex.: Prof. Carlos"></div><div><label>WhatsApp</label><input id="ct-phone" type="tel" inputmode="tel" placeholder="(00) 00000-0000"></div></div>
+    <button class="btn block" id="ct-add" style="margin-top:10px">+ Adicionar contato</button>
+  </div>
   <h2>Consultório</h2>
   <div class="card">
     <label style="margin-top:0">Nome usado nas mensagens</label><input id="s-clinic" value="${esc(SETTINGS.clinic)}">
@@ -835,6 +897,18 @@ function viewSettings(app) {
     await saveSettings(); toast('Ajustes salvos ✓');
   };
   $('#s-rem', app).onchange = async e => { SETTINGS.defaultRemind = +e.target.value; await saveSettings(); };
+  const ctp = $('#ct-phone', app); ctp.oninput = () => ctp.value = maskPhone(ctp.value);
+  $('#ct-add', app).onclick = async () => {
+    const name = $('#ct-name', app).value.trim(), phone = ctp.value;
+    if (!name) return toast('Informe o nome do contato');
+    if (digits(phone).length < 10) return toast('Informe o WhatsApp com DDD');
+    SETTINGS.contacts = [...(SETTINGS.contacts || []), { id: uid(), name, phone }];
+    await saveSettings(); render(); toast('Contato salvo ✓');
+  };
+  $$('[data-rmc]', app).forEach(b => b.onclick = async () => {
+    if (!await confirmBox('Remover este contato?')) return;
+    SETTINGS.contacts = SETTINGS.contacts.filter(c => c.id !== b.dataset.rmc); await saveSettings(); render();
+  });
   $('#s-exp', app).onclick = exportBackup;
   $('#s-imp', app).onchange = e => { const f = e.target.files[0]; if (f) importBackup(f); e.target.value = ''; };
   if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const el = $('#s-store'); if (el) el.textContent = `Espaço usado: ${fmtSize(e.usage || 0)}`; });

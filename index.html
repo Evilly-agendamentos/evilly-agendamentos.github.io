@@ -118,6 +118,7 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 <header>
   <div style="font-size:24px">🦷</div>
   <h1>Agendamentos da Evilly<div class="sub" id="hsub"></div></h1>
+  <button id="sync-ind" aria-label="Situação da nuvem" style="padding:8px 7px;font-size:13px;white-space:nowrap">☁️</button>
   <button id="quick-patient" aria-label="Cadastrar novo paciente" style="font-weight:650;white-space:nowrap">👤+ Paciente</button>
 </header>
 <main id="app"></main>
@@ -133,19 +134,19 @@ hr{border:0;border-top:1px solid var(--line);margin:14px 0}
 <script>
 'use strict';
 /* ================= Banco de dados local (IndexedDB) ================= */
+const SYNC_STORES = ['patients', 'appointments', 'files', 'settings'];
 const DB = {
   db: null,
   open() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open('evilly-agenda', 1);
+      const r = indexedDB.open('evilly-agenda', 2);
       r.onupgradeneeded = () => {
-        const d = r.result;
-        d.createObjectStore('patients', { keyPath: 'id' });
-        const a = d.createObjectStore('appointments', { keyPath: 'id' });
-        a.createIndex('patientId', 'patientId');
-        const f = d.createObjectStore('files', { keyPath: 'id' });
-        f.createIndex('patientId', 'patientId');
-        d.createObjectStore('settings', { keyPath: 'key' });
+        const d = r.result, has = n => d.objectStoreNames.contains(n);
+        if (!has('patients')) d.createObjectStore('patients', { keyPath: 'id' });
+        if (!has('appointments')) d.createObjectStore('appointments', { keyPath: 'id' }).createIndex('patientId', 'patientId');
+        if (!has('files')) d.createObjectStore('files', { keyPath: 'id' }).createIndex('patientId', 'patientId');
+        if (!has('settings')) d.createObjectStore('settings', { keyPath: 'key' });
+        if (!has('outbox')) d.createObjectStore('outbox', { keyPath: 'k' });
       };
       r.onsuccess = () => { this.db = r.result; res(); };
       r.onerror = () => rej(r.error);
@@ -162,8 +163,21 @@ const DB = {
   },
   all(store) { return this.tx(store, 'readonly', s => s.getAll()); },
   get(store, id) { return this.tx(store, 'readonly', s => s.get(id)); },
-  put(store, v) { return this.tx(store, 'readwrite', s => s.put(v)); },
-  del(store, id) { return this.tx(store, 'readwrite', s => s.delete(id)); },
+  // put/del marcam a alteração para enviar à nuvem (silent = veio da nuvem, não reenviar)
+  async put(store, v, silent) {
+    const sync = SYNC_STORES.includes(store) && !silent;
+    if (sync) v.updatedAt = Date.now();
+    await this.tx(store, 'readwrite', s => s.put(v));
+    if (sync) await this.mark(store, v[store === 'settings' ? 'key' : 'id'], false);
+  },
+  async del(store, id, silent) {
+    await this.tx(store, 'readwrite', s => s.delete(id));
+    if (SYNC_STORES.includes(store) && !silent) await this.mark(store, id, true);
+  },
+  async mark(store, id, deleted) {
+    await this.tx('outbox', 'readwrite', s => s.put({ k: store + ':' + id, store, id, deleted, ts: Date.now() }));
+    scheduleSync();
+  },
   byIndex(store, idx, v) { return this.tx(store, 'readonly', s => s.index(idx).getAll(v)); },
   clear(store) { return this.tx(store, 'readwrite', s => s.clear()); }
 };
@@ -360,7 +374,7 @@ async function patientForm(p) {
         const all = [...files.map(f => ({ ...f, saved: true })), ...pendingFiles];
         $('#file-list', el).innerHTML = all.length ? all.map(f => `<div class="file"><span class="fi">${fileIcon(f.type)}</span><div class="grow"><div class="name small">${esc(f.name)}</div><div class="tiny muted">${fmtSize(f.size)}${f.saved ? '' : ' · será salvo'}</div></div>
           <button type="button" class="btn sm" data-open="${f.id}">Abrir</button><button type="button" class="btn sm danger" data-rm="${f.id}">✕</button></div>`).join('') : '<div class="hint">Nenhum arquivo anexado.</div>';
-        $$('[data-open]', el).forEach(b => b.onclick = () => { const f = all.find(x => x.id === b.dataset.open); openBlob(f.blob, f.name); });
+        $$('[data-open]', el).forEach(b => b.onclick = () => openFile(all.find(x => x.id === b.dataset.open)));
         $$('[data-rm]', el).forEach(b => b.onclick = async () => {
           const id = b.dataset.rm;
           if (files.find(x => x.id === id)) { if (!await confirmBox('Remover este arquivo?')) return; await DB.del('files', id); files.splice(files.findIndex(x => x.id === id), 1); }
@@ -408,6 +422,14 @@ async function patientForm(p) {
   });
 }
 
+// Abre um anexo; se ele estiver só na nuvem (outro aparelho enviou), baixa primeiro
+async function openFile(f) {
+  if (f.blob) return openBlob(f.blob, f.name);
+  if (!Cloud.token) return toast('Arquivo está na nuvem. Conecte em Ajustes.');
+  toast('Baixando arquivo...');
+  try { const blob = await Cloud.download(f); f.blob = blob; toast('Pronto! Toque em Abrir de novo.'); }
+  catch (e) { toast('Não foi possível baixar (sem internet?)'); }
+}
 function openBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
@@ -641,6 +663,7 @@ function viewAgenda(app) {
   const monthTotal = APPTS.filter(a => a.date.startsWith(monthKey) && a.status === 'concluida' && a.value !== '').reduce((s, a) => s + Number(a.value), 0);
   let html = `<div class="btns" style="margin:0 0 12px"><button class="btn pri grow" id="q-pat">👤 Novo paciente</button><button class="btn grow" id="q-appt" style="color:var(--rose);border-color:var(--rose-soft)">📅 Nova consulta</button></div>
   <div class="statgrid"><div class="stat"><b>${todayList.length}</b><span>hoje</span></div><div class="stat"><b>${weekCount}</b><span>próx. 7 dias</span></div><div class="stat"><b style="font-size:15px;line-height:24px">${money(monthTotal) || 'R$ 0'}</b><span>concluído no mês</span></div></div>`;
+  if (!Cloud.token) html += `<a href="#ajustes" class="banner info" style="display:block;text-decoration:none">☁️ Toque aqui para conectar à nuvem e não perder nenhum dado</a>`;
   if ('Notification' in window && Notification.permission === 'default') html += `<div class="banner clickable" id="ask-notif">🔔 Toque aqui para ativar os lembretes de consulta</div>`;
   if ('Notification' in window && Notification.permission === 'denied') html += `<div class="banner">🔕 Notificações bloqueadas. Ative nas configurações do navegador, ou use “📆 Agenda do celular” em cada consulta.</div>`;
   html += `<div class="seg"><button data-m="dia" class="${agendaMode === 'dia' ? 'on' : ''}">Por dia</button><button data-m="proximas" class="${agendaMode === 'proximas' ? 'on' : ''}">Próximas</button><button data-m="historico" class="${agendaMode === 'historico' ? 'on' : ''}">Histórico</button></div>`;
@@ -725,9 +748,10 @@ async function viewPatient(app, id) {
   $('#pp-wa', app).onclick = () => pickTemplateForPatient(p);
   $('#pp-new', app).onclick = () => apptForm(null, p.id);
   $('#pp-edit', app).onclick = () => patientForm(p);
-  $$('[data-f]', app).forEach(b => b.onclick = () => { const f = files.find(x => x.id === b.dataset.f); openBlob(f.blob, f.name); });
+  $$('[data-f]', app).forEach(b => b.onclick = () => openFile(files.find(x => x.id === b.dataset.f)));
   $$('[data-share]', app).forEach(b => b.onclick = async () => {
     const f = files.find(x => x.id === b.dataset.share);
+    if (!f.blob) return openFile(f);
     const file = new File([f.blob], f.name, { type: f.type });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: f.name }); } catch { } }
     else toast('Compartilhamento não suportado neste aparelho');
@@ -772,6 +796,8 @@ function viewSettings(app) {
       : isIOS ? '<div class="small">No iPhone (Safari): toque em <b>Compartilhar</b> <span style="font-size:17px">⎋</span> e depois em <b>“Adicionar à Tela de Início”</b>.</div>'
       : '<div class="small">No Chrome: toque no menu <b>⋮</b> e depois em <b>“Instalar app”</b> ou <b>“Adicionar à tela inicial”</b>.</div>'}
   </div>`}
+  <h2>Nuvem</h2>
+  ${cloudCard()}
   <h2>Lembretes</h2>
   <div class="card">
     <div class="row"><div class="grow"><b>Notificações</b><div class="small muted">${{ granted: '✅ Ativadas', denied: '🔕 Bloqueadas no navegador', default: 'Ainda não ativadas', unsupported: 'Não suportadas neste navegador' }[perm]}</div></div>
@@ -797,6 +823,7 @@ function viewSettings(app) {
   </div>
   <h2>Sobre</h2>
   <div class="card small muted">Agendamentos da Evilly · v1.0<br>${PATIENTS.length} pacientes · ${APPTS.length} consultas<br><span id="s-store"></span></div>`;
+  bindCloudCard(app);
   const si = $('#s-install', app); if (si) si.onclick = async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; render(); };
   const sp = $('#s-perm', app); if (sp) sp.onclick = async () => { await ensureNotifyPermission(); render(); };
   const st = $('#s-test', app); if (st) st.onclick = () => notify('🦷 Teste de lembrete', 'As notificações estão funcionando!', 'test');
@@ -834,13 +861,159 @@ async function importBackup(f) {
     const data = JSON.parse(await f.text());
     if (data.app !== 'agendamentos-evilly') throw new Error('Arquivo não é um backup deste app');
     if (!await confirmBox(`Restaurar backup de ${new Date(data.exportedAt).toLocaleString('pt-BR')}?\n\n${data.patients.length} pacientes, ${data.appointments.length} consultas.\n\nOs dados atuais deste celular serão SUBSTITUÍDOS.`)) return;
-    for (const s of ['patients', 'appointments', 'files']) await DB.clear(s);
+    for (const s of ['patients', 'appointments', 'files']) for (const r of await DB.all(s)) await DB.del(s, r.id);
     for (const p of data.patients) await DB.put('patients', p);
     for (const a of data.appointments) await DB.put('appointments', a);
     for (const x of data.files) { const blob = await (await fetch(x.data)).blob(); const { data: _, ...rest } = x; await DB.put('files', { ...rest, blob }); }
     if (data.settings) { SETTINGS = Object.assign(SETTINGS, data.settings); await saveSettings(); }
     await reload(); render(); toast('Backup restaurado ✓');
   } catch (e) { alert('Não foi possível restaurar: ' + e.message); }
+}
+
+/* ================= Nuvem (Cloudflare) ================= */
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { } };
+const Cloud = {
+  url: (location.hostname === 'localhost' && lsGet('evilly-cloud-url')) || 'https://agendamentos-evilly.evilly-agendamentos.workers.dev',
+  token: lsGet('evilly-cloud-token'),
+  state: 'off', // off | ok | syncing | pending | error | offline
+  lastSync: +lsGet('evilly-cloud-last') || 0,
+  lastError: '',
+  async api(path, opts = {}) {
+    const r = await fetch(this.url + path, { ...opts, headers: { ...(opts.headers || {}), ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}) } });
+    if (r.status === 401 && this.token && !path.includes('login')) { this.setToken(null); this.state = 'off'; updateSyncInd(); toast('Entre novamente na nuvem (Ajustes)'); }
+    const ct = r.headers.get('Content-Type') || '';
+    const body = ct.includes('json') ? await r.json() : r;
+    if (!r.ok) throw new Error(body.error || 'Erro ' + r.status);
+    return body;
+  },
+  setToken(t) { this.token = t; lsSet('evilly-cloud-token', t); },
+  async download(f) {
+    const r = await fetch(this.url + '/api/files/' + f.id, { headers: { Authorization: 'Bearer ' + this.token } });
+    if (!r.ok) throw new Error('download');
+    const blob = await r.blob();
+    const cur = await DB.get('files', f.id);
+    if (cur) { cur.blob = blob; await DB.tx('files', 'readwrite', s => s.put(cur)); }
+    return blob;
+  }
+};
+let syncTimer = null, syncing = false, syncAgain = false;
+function scheduleSync(ms = 1500) { if (!Cloud.token) return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms); if (Cloud.state === 'ok') { Cloud.state = 'pending'; updateSyncInd(); } }
+function updateSyncInd() {
+  const el = $('#sync-ind'); if (!el) return;
+  const m = { off: ['☁️✕', 'Nuvem desligada'], ok: ['☁️✓', 'Tudo salvo na nuvem'], syncing: ['☁️…', 'Salvando...'], pending: ['☁️…', 'Salvando...'], error: ['☁️⚠', 'Erro ao salvar'], offline: ['☁️⏸', 'Sem internet — salva depois'] }[Cloud.state];
+  el.textContent = m[0]; el.title = m[1];
+  const st = $('#cloud-state'); if (st) st.textContent = m[1] + (Cloud.lastSync ? ` · última vez ${new Date(Cloud.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : '') + (Cloud.state === 'error' && Cloud.lastError ? ` (${Cloud.lastError})` : '');
+}
+const stripLocal = (store, rec) => { if (store !== 'files') return rec; const { blob, ...rest } = rec; return rest; };
+async function syncNow() {
+  if (!Cloud.token) return;
+  if (syncing) { syncAgain = true; return; }
+  if (!navigator.onLine) { Cloud.state = 'offline'; updateSyncInd(); return; }
+  syncing = true; Cloud.state = 'syncing'; updateSyncInd();
+  let pulled = 0;
+  try {
+    // 1) enviar alterações locais
+    const out = await DB.all('outbox');
+    const changes = [];
+    for (const o of out) {
+      const rec = o.deleted ? null : await DB.get(o.store, o.id);
+      if (o.store === 'files' && rec && rec.blob && !rec.uploaded) {
+        await Cloud.api('/api/files/' + rec.id, { method: 'PUT', body: rec.blob, headers: { 'X-File-Name': encodeURIComponent(rec.name), 'X-File-Type': rec.type || 'application/octet-stream' } });
+        rec.uploaded = true; await DB.tx('files', 'readwrite', s => s.put(rec));
+      }
+      changes.push(rec ? { store: o.store, id: o.id, updatedAt: rec.updatedAt || o.ts, data: stripLocal(o.store, rec) } : { store: o.store, id: o.id, deleted: true, updatedAt: o.ts });
+    }
+    for (let i = 0; i < changes.length; i += 200) await Cloud.api('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ changes: changes.slice(i, i + 200) }) });
+    for (const o of out) { const cur = await DB.get('outbox', o.k); if (cur && cur.ts === o.ts) await DB.tx('outbox', 'readwrite', s => s.delete(o.k)); }
+    // 2) receber alterações de outros aparelhos
+    let since = +lsGet('evilly-cloud-rev') || 0, more = true;
+    while (more) {
+      const r = await Cloud.api('/api/pull?since=' + since);
+      for (const c of r.changes) {
+        const pending = await DB.get('outbox', c.store + ':' + c.id);
+        const key = c.store === 'settings' ? 'key' : 'id';
+        const local = await DB.get(c.store, c.id);
+        if (pending && local && (local.updatedAt || 0) > c.updatedAt) continue;
+        if (local && !c.deleted && (local.updatedAt || 0) === c.updatedAt) continue; // é a minha própria alteração
+        pulled++;
+        if (c.deleted) { await DB.del(c.store, c.id, true); continue; }
+        const rec = { ...c.data, [key]: c.id, updatedAt: c.updatedAt };
+        if (c.store === 'files') { rec.blob = local && local.blob || null; rec.uploaded = true; }
+        await DB.put(c.store, rec, true);
+      }
+      since = r.rev; more = r.more; lsSet('evilly-cloud-rev', since);
+    }
+    Cloud.lastSync = Date.now(); lsSet('evilly-cloud-last', Cloud.lastSync);
+    Cloud.state = (await DB.all('outbox')).length ? 'pending' : 'ok'; Cloud.lastError = '';
+    if (pulled) { await loadSettings(); await reload(); if (!$$('.sheet-bg').length) render(); }
+    // 3) baixar em segundo plano radiografias que vieram de outro aparelho
+    for (const f of (await DB.all('files')).filter(f => !f.blob).slice(0, 5)) { try { await Cloud.download(f); } catch { } }
+  } catch (e) {
+    Cloud.state = navigator.onLine ? 'error' : 'offline'; Cloud.lastError = e.message;
+    if (Cloud.token) setTimeout(() => scheduleSync(0), 30000);
+  } finally {
+    syncing = false; updateSyncInd();
+    if (syncAgain) { syncAgain = false; scheduleSync(300); }
+  }
+}
+async function enqueueAll() {
+  for (const s of SYNC_STORES) for (const r of await DB.all(s)) await DB.tx('outbox', 'readwrite', st => st.put({ k: s + ':' + (r.id || r.key), store: s, id: r.id || r.key, deleted: false, ts: Date.now() }));
+}
+async function cloudConnected(token) {
+  Cloud.setToken(token); lsSet('evilly-cloud-rev', null);
+  await enqueueAll(); await syncNow(); render();
+  toast('Conectado à nuvem ✓');
+}
+function cloudCard() {
+  if (Cloud.token) return `<div class="card">
+    <div class="row"><div class="grow"><b>☁️ Conectado</b><div class="small muted" id="cloud-state"></div></div><button class="btn sm" id="c-sync">Sincronizar</button></div>
+    <div class="hint">Tudo o que for cadastrado é salvo sozinho na nuvem da Evilly (Cloudflare). Em outro aparelho, é só abrir o app e entrar com a mesma senha.</div>
+    <div class="btns"><button class="btn sm" id="c-pass">Trocar senha</button><button class="btn sm danger" id="c-out">Desconectar este aparelho</button></div></div>`;
+  return `<div class="card" id="cloud-login"><div class="small muted">Verificando a nuvem...</div></div>`;
+}
+async function mountCloudLogin(app) {
+  const box = $('#cloud-login', app); if (!box) return;
+  let configured;
+  try { configured = (await Cloud.api('/api/status')).configured; }
+  catch { box.innerHTML = '<div class="small">⚠️ Sem conexão com a nuvem agora. Verifique a internet e abra Ajustes de novo.</div>'; return; }
+  box.innerHTML = configured ? `
+    <b>☁️ Entrar na nuvem</b><div class="small muted">Use a senha da nuvem da Evilly para salvar e recuperar os dados.</div>
+    <label>Senha</label><input id="c-pw" type="password" autocomplete="current-password">
+    <button class="btn pri block" id="c-login" style="margin-top:12px">Entrar</button>` : `
+    <b>☁️ Ativar a nuvem (primeira vez)</b><div class="small muted">Crie a senha que vai proteger os dados. Guarde-a bem: ela será pedida em cada aparelho novo.</div>
+    <label>Código de ativação</label><input id="c-code" inputmode="numeric" maxlength="6" placeholder="6 números">
+    <label>Criar senha (mín. 6 caracteres)</label><input id="c-pw" type="password" autocomplete="new-password">
+    <label>Repetir senha</label><input id="c-pw2" type="password" autocomplete="new-password">
+    <button class="btn pri block" id="c-setup" style="margin-top:12px">Ativar nuvem</button>`;
+  const go = async (btn, fn) => { btn.disabled = true; const t = btn.textContent; btn.textContent = 'Aguarde...'; try { await fn(); } catch (e) { toast(e.message, 3500); } finally { btn.disabled = false; btn.textContent = t; } };
+  const lb = $('#c-login', box);
+  if (lb) lb.onclick = () => go(lb, async () => { const r = await Cloud.api('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('#c-pw', box).value }) }); await cloudConnected(r.token); });
+  const sb = $('#c-setup', box);
+  if (sb) sb.onclick = () => go(sb, async () => {
+    const pw = $('#c-pw', box).value;
+    if (pw.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres');
+    if (pw !== $('#c-pw2', box).value) throw new Error('As senhas não são iguais');
+    const r = await Cloud.api('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw, code: $('#c-code', box).value }) });
+    await cloudConnected(r.token);
+  });
+}
+function bindCloudCard(app) {
+  updateSyncInd();
+  const s = $('#c-sync', app); if (s) s.onclick = () => syncNow();
+  const o = $('#c-out', app); if (o) o.onclick = async () => {
+    if ((await DB.all('outbox')).length && !await confirmBox('Ainda há alterações não enviadas. Desconectar mesmo assim?')) return;
+    if (!await confirmBox('Desconectar este aparelho da nuvem? Os dados continuam salvos na nuvem e neste aparelho.')) return;
+    Cloud.setToken(null); Cloud.state = 'off'; updateSyncInd(); render();
+  };
+  const pw = $('#c-pass', app); if (pw) pw.onclick = () => openSheet('Trocar senha da nuvem', `<label>Nova senha (mín. 6)</label><input id="np1" type="password" autocomplete="new-password"><label>Repetir</label><input id="np2" type="password" autocomplete="new-password">
+    <div class="hint">Os outros aparelhos vão precisar entrar de novo com a senha nova.</div><button class="btn pri block" id="np-go" style="margin-top:12px">Salvar nova senha</button>`, (el, close) => {
+    $('#np-go', el).onclick = async () => {
+      const a = $('#np1', el).value; if (a.length < 6) return toast('Mínimo 6 caracteres'); if (a !== $('#np2', el).value) return toast('As senhas não são iguais');
+      try { const r = await Cloud.api('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: a }) }); Cloud.setToken(r.token); close(); toast('Senha alterada ✓'); } catch (e) { toast(e.message); }
+    };
+  });
+  mountCloudLogin(app);
 }
 
 /* ================= Roteamento ================= */
@@ -879,7 +1052,13 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instal
     navigator.serviceWorker.addEventListener('message', e => { if (e.data === 'check') checkReminders(); });
   }
   checkReminders(); setInterval(checkReminders, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { reload().then(() => { render(); checkReminders(); }); } });
+  $('#sync-ind').onclick = () => { location.hash = '#ajustes'; };
+  if (Cloud.token) { Cloud.state = 'pending'; syncNow(); }
+  updateSyncInd();
+  setInterval(() => { if (Cloud.token && !document.hidden) syncNow(); }, 60000);
+  window.addEventListener('online', () => scheduleSync(0));
+  window.addEventListener('offline', () => { if (Cloud.token) { Cloud.state = 'offline'; updateSyncInd(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { reload().then(() => { render(); checkReminders(); }); if (Cloud.token) syncNow(); } });
 })();
 </script>
 </body>

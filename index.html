@@ -112,6 +112,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--pri-2);outline-o
 .stat span{font-size:11.5px;color:var(--muted)}
 .avatar{width:40px;height:40px;border-radius:12px;background:var(--rose-soft);color:var(--rose);display:flex;align-items:center;justify-content:center;font-weight:750;flex:0 0 40px}
 hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+body.locked nav.tabs, body.locked .fab, body.locked #quick-patient, body.locked #sync-ind{display:none!important}
+body.locked{padding-bottom:0}
 </style>
 </head>
 <body>
@@ -663,7 +665,6 @@ function viewAgenda(app) {
   const monthTotal = APPTS.filter(a => a.date.startsWith(monthKey) && a.status === 'concluida' && a.value !== '').reduce((s, a) => s + Number(a.value), 0);
   let html = `<div class="btns" style="margin:0 0 12px"><button class="btn pri grow" id="q-pat">👤 Novo paciente</button><button class="btn grow" id="q-appt" style="color:var(--rose);border-color:var(--rose-soft)">📅 Nova consulta</button></div>
   <div class="statgrid"><div class="stat"><b>${todayList.length}</b><span>hoje</span></div><div class="stat"><b>${weekCount}</b><span>próx. 7 dias</span></div><div class="stat"><b style="font-size:15px;line-height:24px">${money(monthTotal) || 'R$ 0'}</b><span>concluído no mês</span></div></div>`;
-  if (!Cloud.token) html += `<a href="#ajustes" class="banner info" style="display:block;text-decoration:none">☁️ Toque aqui para conectar à nuvem e não perder nenhum dado</a>`;
   if ('Notification' in window && Notification.permission === 'default') html += `<div class="banner clickable" id="ask-notif">🔔 Toque aqui para ativar os lembretes de consulta</div>`;
   if ('Notification' in window && Notification.permission === 'denied') html += `<div class="banner">🔕 Notificações bloqueadas. Ative nas configurações do navegador, ou use “📆 Agenda do celular” em cada consulta.</div>`;
   html += `<div class="seg"><button data-m="dia" class="${agendaMode === 'dia' ? 'on' : ''}">Por dia</button><button data-m="proximas" class="${agendaMode === 'proximas' ? 'on' : ''}">Próximas</button><button data-m="historico" class="${agendaMode === 'historico' ? 'on' : ''}">Histórico</button></div>`;
@@ -881,7 +882,7 @@ const Cloud = {
   lastError: '',
   async api(path, opts = {}) {
     const r = await fetch(this.url + path, { ...opts, headers: { ...(opts.headers || {}), ...(this.token ? { Authorization: 'Bearer ' + this.token } : {}) } });
-    if (r.status === 401 && this.token && !path.includes('login')) { this.setToken(null); this.state = 'off'; updateSyncInd(); toast('Entre novamente na nuvem (Ajustes)'); }
+    if (r.status === 401 && this.token && !path.includes('login')) { this.setToken(null); this.state = 'off'; $$('.sheet-bg').forEach(x => x.remove()); render(); toast('Sessão encerrada. Entre novamente.'); }
     const ct = r.headers.get('Content-Type') || '';
     const body = ct.includes('json') ? await r.json() : r;
     if (!r.ok) throw new Error(body.error || 'Erro ' + r.status);
@@ -962,39 +963,45 @@ async function enqueueAll() {
 }
 async function cloudConnected(token) {
   Cloud.setToken(token); lsSet('evilly-cloud-rev', null);
+  location.hash = '#agenda'; render();
   await enqueueAll(); await syncNow(); render();
-  toast('Conectado à nuvem ✓');
+  toast('Bem-vinda! ✓');
 }
 function cloudCard() {
   if (Cloud.token) return `<div class="card">
     <div class="row"><div class="grow"><b>☁️ Conectado</b><div class="small muted" id="cloud-state"></div></div><button class="btn sm" id="c-sync">Sincronizar</button></div>
-    <div class="hint">Tudo o que for cadastrado é salvo sozinho na nuvem da Evilly (Cloudflare). Em outro aparelho, é só abrir o app e entrar com a mesma senha.</div>
-    <div class="btns"><button class="btn sm" id="c-pass">Trocar senha</button><button class="btn sm danger" id="c-out">Desconectar este aparelho</button></div></div>`;
+    <div class="hint">Tudo o que for cadastrado é salvo sozinho na nuvem da Evilly (Cloudflare). Em outro aparelho, é só abrir o app e entrar com o mesmo usuário e senha.</div>
+    <div class="btns"><button class="btn sm" id="c-pass">Trocar senha</button><button class="btn sm danger" id="c-out">🚪 Sair</button></div></div>`;
   return `<div class="card" id="cloud-login"><div class="small muted">Verificando a nuvem...</div></div>`;
 }
 async function mountCloudLogin(app) {
   const box = $('#cloud-login', app); if (!box) return;
   let configured;
   try { configured = (await Cloud.api('/api/status')).configured; }
-  catch { box.innerHTML = '<div class="small">⚠️ Sem conexão com a nuvem agora. Verifique a internet e abra Ajustes de novo.</div>'; return; }
+  catch { box.innerHTML = '<div class="small">⚠️ Sem internet. Para entrar pela primeira vez neste aparelho é preciso estar conectada.</div><button class="btn block" style="margin-top:10px" onclick="render()">Tentar de novo</button>'; return; }
   box.innerHTML = configured ? `
-    <b>☁️ Entrar na nuvem</b><div class="small muted">Use a senha da nuvem da Evilly para salvar e recuperar os dados.</div>
+    <form id="c-form" onsubmit="return false">
+    <b style="font-size:18px">Entrar</b><div class="small muted">Acesso restrito à Dra. Evilly.</div>
+    <label>Usuário</label><input id="c-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label>Senha</label><input id="c-pw" type="password" autocomplete="current-password">
-    <button class="btn pri block" id="c-login" style="margin-top:12px">Entrar</button>` : `
-    <b>☁️ Ativar a nuvem (primeira vez)</b><div class="small muted">Crie a senha que vai proteger os dados. Guarde-a bem: ela será pedida em cada aparelho novo.</div>
+    <button class="btn pri block" id="c-login" style="margin-top:14px">Entrar</button></form>` : `
+    <form id="c-form" onsubmit="return false">
+    <b style="font-size:18px">Primeiro acesso</b><div class="small muted">Crie o usuário e a senha que vão proteger o app. Guarde bem: eles serão pedidos em cada aparelho.</div>
     <label>Código de ativação</label><input id="c-code" inputmode="numeric" maxlength="6" placeholder="6 números">
+    <label>Criar usuário (ex.: evilly)</label><input id="c-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
     <label>Criar senha (mín. 6 caracteres)</label><input id="c-pw" type="password" autocomplete="new-password">
     <label>Repetir senha</label><input id="c-pw2" type="password" autocomplete="new-password">
-    <button class="btn pri block" id="c-setup" style="margin-top:12px">Ativar nuvem</button>`;
+    <button class="btn pri block" id="c-setup" style="margin-top:14px">Criar acesso e entrar</button></form>`;
   const go = async (btn, fn) => { btn.disabled = true; const t = btn.textContent; btn.textContent = 'Aguarde...'; try { await fn(); } catch (e) { toast(e.message, 3500); } finally { btn.disabled = false; btn.textContent = t; } };
   const lb = $('#c-login', box);
-  if (lb) lb.onclick = () => go(lb, async () => { const r = await Cloud.api('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('#c-pw', box).value }) }); await cloudConnected(r.token); });
+  if (lb) lb.onclick = () => go(lb, async () => { const r = await Cloud.api('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('#c-user', box).value, password: $('#c-pw', box).value }) }); await cloudConnected(r.token); });
   const sb = $('#c-setup', box);
   if (sb) sb.onclick = () => go(sb, async () => {
     const pw = $('#c-pw', box).value;
+    if ($('#c-user', box).value.trim().length < 3) throw new Error('O usuário precisa ter pelo menos 3 letras');
     if (pw.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres');
     if (pw !== $('#c-pw2', box).value) throw new Error('As senhas não são iguais');
-    const r = await Cloud.api('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw, code: $('#c-code', box).value }) });
+    const r = await Cloud.api('/api/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('#c-user', box).value, password: pw, code: $('#c-code', box).value }) });
     await cloudConnected(r.token);
   });
 }
@@ -1002,9 +1009,13 @@ function bindCloudCard(app) {
   updateSyncInd();
   const s = $('#c-sync', app); if (s) s.onclick = () => syncNow();
   const o = $('#c-out', app); if (o) o.onclick = async () => {
-    if ((await DB.all('outbox')).length && !await confirmBox('Ainda há alterações não enviadas. Desconectar mesmo assim?')) return;
-    if (!await confirmBox('Desconectar este aparelho da nuvem? Os dados continuam salvos na nuvem e neste aparelho.')) return;
-    Cloud.setToken(null); Cloud.state = 'off'; updateSyncInd(); render();
+    await syncNow();
+    if ((await DB.all('outbox')).length) { if (!await confirmBox('⚠️ Há alterações que ainda NÃO foram salvas na nuvem (sem internet?). Se sair agora, elas serão perdidas. Sair mesmo assim?')) return; }
+    else if (!await confirmBox('Sair do app neste aparelho? Os dados continuam salvos na nuvem e voltam quando você entrar de novo.')) return;
+    try { await Cloud.api('/api/logout', { method: 'POST' }); } catch { }
+    for (const s of [...SYNC_STORES, 'outbox']) await DB.clear(s);
+    ['evilly-cloud-token', 'evilly-cloud-rev', 'evilly-cloud-last'].forEach(k => lsSet(k, null));
+    location.href = location.pathname + '#agenda'; location.reload();
   };
   const pw = $('#c-pass', app); if (pw) pw.onclick = () => openSheet('Trocar senha da nuvem', `<label>Nova senha (mín. 6)</label><input id="np1" type="password" autocomplete="new-password"><label>Repetir</label><input id="np2" type="password" autocomplete="new-password">
     <div class="hint">Os outros aparelhos vão precisar entrar de novo com a senha nova.</div><button class="btn pri block" id="np-go" style="margin-top:12px">Salvar nova senha</button>`, (el, close) => {
@@ -1017,7 +1028,16 @@ function bindCloudCard(app) {
 }
 
 /* ================= Roteamento ================= */
+function viewGate(app) {
+  app.innerHTML = `<div style="max-width:420px;margin:24px auto 0">
+    <div style="text-align:center;margin-bottom:18px"><img src="icon-192.png" alt="" width="72" height="72" style="border-radius:20px"><div style="font-weight:700;font-size:20px;margin-top:10px">Agendamentos da Evilly</div></div>
+    <div class="card" id="cloud-login" style="padding:18px"><div class="small muted">Carregando...</div></div>
+    <p class="tiny muted" style="text-align:center">🔒 Os dados são protegidos por usuário e senha.</p></div>`;
+  mountCloudLogin(app);
+}
 async function render() {
+  document.body.classList.toggle('locked', !Cloud.token);
+  if (!Cloud.token) return viewGate($('#app'));
   const h = location.hash || '#agenda';
   const tab = h.startsWith('#paciente') ? 'pacientes' : h.slice(1);
   $$('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.t === tab));

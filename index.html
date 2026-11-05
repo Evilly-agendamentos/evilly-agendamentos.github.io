@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agendamentos da Evilly</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Agenda de pacientes do consultório odontológico">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Evilly">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{
+  --bg:#f4f7f7; --card:#fff; --ink:#15302e; --muted:#5f7472; --line:#dde6e5;
+  --pri:#0f766e; --pri-2:#14b8a6; --pri-soft:#e0f2f1; --rose:#e11d74; --rose-soft:#fde7f1;
+  --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2;
+  --wa:#16a34a; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(15,60,58,.07);
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0d1716;--card:#15211f;--ink:#e6f0ef;--muted:#93a8a5;--line:#263533;--pri:#2dd4bf;--pri-2:#14b8a6;--pri-soft:#123a36;--rose:#f472b6;--rose-soft:#3a1a2a;--ok:#4ade80;--ok-soft:#14321f;--warn:#fbbf24;--warn-soft:#3a2d10;--bad:#f87171;--bad-soft:#3a1616;--shadow:none}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:var(--pri);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:10px}
+@media (prefers-color-scheme: dark){header{background:#0f3d39}}
+header h1{font-size:18px;margin:0;flex:1;font-weight:650;letter-spacing:.2px}
+header .sub{font-size:12px;opacity:.85;font-weight:400}
+header button{background:rgba(255,255,255,.16);border:0;color:#fff;border-radius:10px;padding:8px 10px;font-size:14px}
+main{padding:14px 14px 24px;max-width:720px;margin:0 auto}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs a{flex:1;text-align:center;padding:8px 0 9px;color:var(--muted);text-decoration:none;font-size:11.5px;font-weight:550}
+nav.tabs a .ic{display:block;font-size:21px;line-height:26px}
+nav.tabs a.on{color:var(--pri)}
+.fab{position:fixed;right:18px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:6;width:58px;height:58px;border-radius:18px;border:0;background:var(--rose);color:#fff;font-size:30px;box-shadow:0 6px 18px rgba(225,29,116,.35)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px}
+.row{display:flex;gap:10px;align-items:center}
+.grow{flex:1;min-width:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tiny{font-size:12px}
+h2{font-size:15px;margin:18px 4px 8px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.5px}
+h2:first-child{margin-top:4px}
+.chip{display:inline-block;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--pri-soft);color:var(--pri);font-weight:600;white-space:nowrap}
+.chip.rose{background:var(--rose-soft);color:var(--rose)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.time{font-weight:750;font-size:18px;color:var(--pri);min-width:56px}
+.name{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clickable{cursor:pointer}
+.empty{text-align:center;color:var(--muted);padding:36px 12px}
+.empty .big{font-size:42px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:11px;padding:10px 14px;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+@media (prefers-color-scheme: dark){.btn.pri{color:#06201d}}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:#fff}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.btn.block{width:100%}
+.btn.sm{padding:7px 10px;font-size:13.5px;border-radius:9px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.search{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:16px;margin-bottom:12px}
+.days{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.day{flex:0 0 52px;text-align:center;border-radius:12px;padding:7px 0;background:var(--card);border:1px solid var(--line);cursor:pointer;position:relative}
+.day .dw{font-size:11px;color:var(--muted);text-transform:uppercase}
+.day .dn{font-size:19px;font-weight:700}
+.day.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.day.on .dw{color:#fff}
+@media (prefers-color-scheme: dark){.day.on{color:#06201d}.day.on .dw{color:#06201d}}
+.day .dot{position:absolute;bottom:4px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--rose)}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);padding:8px;border-radius:9px;font-size:14px;font-weight:600}
+.seg button.on{background:var(--pri-soft);color:var(--pri)}
+/* sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:720px;max-height:94vh;overflow:auto;border-radius:18px 18px 0 0;padding:0 0 calc(18px + env(safe-area-inset-bottom))}
+.sheet-head{position:sticky;top:0;background:var(--bg);padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);z-index:2}
+.sheet-head h3{margin:0;font-size:17px;flex:1}
+.sheet-body{padding:14px 16px}
+.x{border:0;background:var(--card);color:var(--ink);width:34px;height:34px;border-radius:10px;font-size:18px;border:1px solid var(--line)}
+label{display:block;font-size:13px;font-weight:650;color:var(--muted);margin:12px 2px 5px}
+input,select,textarea{width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:16px}
+textarea{min-height:80px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--pri-2);outline-offset:-1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.grid3{display:grid;grid-template-columns:2fr 1fr;gap:0 10px}
+.fieldset{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 12px 14px;margin-bottom:12px}
+.fieldset > .legend{font-size:13px;font-weight:750;color:var(--pri);margin:10px 2px 0;text-transform:uppercase;letter-spacing:.4px}
+.hint{font-size:12px;color:var(--muted);margin:4px 2px 0}
+.err{color:var(--bad)}
+.toggle{display:flex;gap:8px}
+.toggle button{flex:1;padding:10px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:15px;font-weight:600}
+.toggle button.on{background:var(--pri-soft);border-color:var(--pri);color:var(--pri)}
+.file{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:11px;margin-top:8px;background:var(--bg)}
+.file .fi{font-size:24px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14.5px}
+.kv .k{color:var(--muted)}
+.tpl{padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--card);cursor:pointer}
+.tpl b{display:block;margin-bottom:3px}
+.tpl .tx{font-size:13.5px;color:var(--muted);white-space:pre-wrap}
+.toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:12px;z-index:50;font-size:14px;max-width:90vw;text-align:center}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.banner.info{background:var(--pri-soft);color:var(--pri)}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}
+.stat span{font-size:11.5px;color:var(--muted)}
+.avatar{width:40px;height:40px;border-radius:12px;background:var(--rose-soft);color:var(--rose);display:flex;align-items:center;justify-content:center;font-weight:750;flex:0 0 40px}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+<header>
+  <div style="font-size:24px">🦷</div>
+  <h1>Agendamentos da Evilly<div class="sub" id="hsub"></div></h1>
+  <button id="quick-patient" aria-label="Cadastrar novo paciente" style="font-weight:650;white-space:nowrap">👤+ Paciente</button>
+</header>
+<main id="app"></main>
+<button class="fab" id="fab" aria-label="Novo">+</button>
+<nav class="tabs">
+  <a href="#agenda" data-t="agenda"><span class="ic">📅</span>Agenda</a>
+  <a href="#pacientes" data-t="pacientes"><span class="ic">👥</span>Pacientes</a>
+  <a href="#mensagens" data-t="mensagens"><span class="ic">💬</span>Mensagens</a>
+  <a href="#ajustes" data-t="ajustes"><span class="ic">⚙️</span>Ajustes</a>
+</nav>
+<div id="sheets"></div>
+
+<script>
+'use strict';
+/* ================= Banco de dados local (IndexedDB) ================= */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('evilly-agenda', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('patients', { keyPath: 'id' });
+        const a = d.createObjectStore('appointments', { keyPath: 'id' });
+        a.createIndex('patientId', 'patientId');
+        const f = d.createObjectStore('files', { keyPath: 'id' });
+        f.createIndex('patientId', 'patientId');
+        d.createObjectStore('settings', { keyPath: 'key' });
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode);
+      const s = t.objectStore(store);
+      const out = fn(s);
+      t.oncomplete = () => res(out && 'result' in out ? out.result : out);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  all(store) { return this.tx(store, 'readonly', s => s.getAll()); },
+  get(store, id) { return this.tx(store, 'readonly', s => s.get(id)); },
+  put(store, v) { return this.tx(store, 'readwrite', s => s.put(v)); },
+  del(store, id) { return this.tx(store, 'readwrite', s => s.delete(id)); },
+  byIndex(store, idx, v) { return this.tx(store, 'readonly', s => s.index(idx).getAll(v)); },
+  clear(store) { return this.tx(store, 'readwrite', s => s.clear()); }
+};
+
+/* ================= Utilidades ================= */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const digits = s => String(s || '').replace(/\D/g, '');
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayStr = () => ymd(new Date());
+const parseLocal = (date, time) => { const [y, m, d] = date.split('-').map(Number); const [h, mi] = (time || '00:00').split(':').map(Number); return new Date(y, m - 1, d, h, mi); };
+const fmtDate = s => { if (!s) return ''; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; };
+const WD = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const WDL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const fmtLong = s => { const d = parseLocal(s); return `${WDL[d.getDay()]}, ${d.getDate()} de ${MES[d.getMonth()]}`; };
+const money = v => (v === '' || v == null || isNaN(v)) ? '' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const parseMoney = s => { if (s == null || s === '') return ''; const n = Number(String(s).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? '' : n; };
+const maskCPF = v => { v = digits(v).slice(0, 11); return v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'); };
+const maskPhone = v => { v = digits(v).slice(0, 11); if (v.length <= 10) return v.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2'); return v.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2'); };
+const maskCEP = v => digits(v).slice(0, 8).replace(/(\d{5})(\d)/, '$1-$2');
+const maskDate = v => digits(v).slice(0, 8).replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
+// Entende datas coladas: 14/03/1990, 14-03-1990, 14.03.90, 1990-03-14, 14031990, "14 de março de 1990"
+function parseDateBR(s) {
+  s = String(s || '').trim().toLowerCase(); if (!s) return '';
+  let d, m, y, r;
+  const mi = MES.findIndex(n => s.includes(n)) ;
+  if (mi >= 0 && (r = s.match(/(\d{1,2})\D+.*?(\d{4})/))) { d = +r[1]; m = mi + 1; y = +r[2]; }
+  else if ((r = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) { y = +r[1]; m = +r[2]; d = +r[3]; }
+  else if ((r = s.match(/^(\d{1,2})[-\/. ](\d{1,2})[-\/. ](\d{2,4})/))) { d = +r[1]; m = +r[2]; y = +r[3]; }
+  else if ((r = s.match(/^(\d{2})(\d{2})(\d{4})$/))) { d = +r[1]; m = +r[2]; y = +r[3]; }
+  else return null;
+  if (y < 100) y += y > (new Date().getFullYear() % 100) ? 1900 : 2000;
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d || y < 1900 || dt > new Date()) return null;
+  return ymd(dt);
+}
+function validCPF(c) {
+  c = digits(c); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (let t = 9; t < 11; t++) { let s = 0; for (let i = 0; i < t; i++) s += c[i] * (t + 1 - i); if (((s * 10) % 11) % 10 != c[t]) return false; }
+  return true;
+}
+function age(b) { if (!b) return ''; const d = parseLocal(b), n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--; return a; }
+const initials = n => (n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+const firstName = n => (n || '').trim().split(/\s+/)[0] || '';
+function toast(msg, ms = 2400) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }
+const fileIcon = t => t && t.includes('pdf') ? '📄' : (t && t.startsWith('image') ? '🖼️' : '📎');
+const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+
+/* ================= Configurações padrão ================= */
+const PAYMENTS = ['Pix', 'Dinheiro', 'Cartão de crédito', 'Cartão de débito', 'Convênio', 'Boleto', 'Parcelado', 'Outro'];
+const DEFAULT_PROCS = ['Avaliação / Consulta', 'Limpeza (profilaxia)', 'Restauração', 'Extração', 'Canal (endodontia)', 'Clareamento', 'Manutenção de aparelho', 'Instalação de aparelho', 'Prótese', 'Implante', 'Raspagem', 'Aplicação de flúor', 'Retorno'];
+const STATUS = {
+  agendada: ['Agendada', ''], confirmada: ['Confirmada', 'ok'], concluida: ['Concluída', 'rose'], faltou: ['Faltou', 'warn'], cancelada: ['Cancelada', 'bad']
+};
+const REMIND = [[0, 'Sem lembrete'], [30, '30 min antes'], [60, '1 hora antes'], [120, '2 horas antes'], [180, '3 horas antes'], [1440, '1 dia antes'], [2880, '2 dias antes']];
+const DEFAULT_TEMPLATES = [
+  { id: 't1', title: 'Confirmar consulta', text: 'Olá, {nome}! Tudo bem? 😊\nPassando para confirmar sua consulta de *{procedimento}* no dia *{data}* ({dia_semana}) às *{hora}*.\nPode confirmar sua presença, por favor?' },
+  { id: 't2', title: 'Lembrete (amanhã)', text: 'Oi, {nome}! Lembrete: amanhã, *{data}*, às *{hora}* você tem consulta com a Dra. Evilly. 🦷\nQualquer imprevisto, me avise com antecedência. Até lá!' },
+  { id: 't3', title: 'Lembrete (hoje)', text: 'Bom dia, {nome}! Hoje às *{hora}* temos sua consulta de {procedimento}. Te espero! 😊' },
+  { id: 't4', title: 'Agendamento realizado', text: 'Olá, {nome}! Sua consulta foi agendada ✅\n📅 {data} ({dia_semana})\n⏰ {hora}\n🦷 {procedimento}\n💰 {valor}\nQualquer dúvida estou à disposição!' },
+  { id: 't5', title: 'Remarcar', text: 'Olá, {nome}! Precisamos remarcar sua consulta do dia {data} às {hora}. Qual o melhor dia e horário para você?' },
+  { id: 't6', title: 'Trazer radiografia', text: 'Oi, {nome}! Para a consulta do dia {data}, por favor traga (ou me envie por aqui) sua radiografia/exame. Obrigada! 🙏' },
+  { id: 't7', title: 'Pós-atendimento', text: 'Oi, {nome}! Como você está se sentindo após o procedimento? Qualquer desconforto, me chame por aqui. 💙' },
+  { id: 't8', title: 'Pagamento / Pix', text: 'Olá, {nome}! O valor da consulta é {valor}. Segue a chave Pix: {pix}\nObrigada!' },
+  { id: 't9', title: 'Aniversário', text: 'Feliz aniversário, {nome}! 🎉 Desejo muita saúde e muitos sorrisos! Um abraço da Dra. Evilly. 🦷💙' },
+  { id: 't10', title: 'Retorno / Revisão', text: 'Olá, {nome}! Já está na hora da sua revisão periódica. 😊 Vamos agendar? Me diga o melhor dia e horário.' }
+];
+let SETTINGS = { templates: DEFAULT_TEMPLATES, procedures: DEFAULT_PROCS, defaultRemind: 1440, pix: '', clinic: 'Dra. Evilly', defaultDuration: 60 };
+async function loadSettings() {
+  const s = await DB.get('settings', 'main');
+  if (s) SETTINGS = Object.assign({}, SETTINGS, s.value);
+}
+const saveSettings = () => DB.put('settings', { key: 'main', value: SETTINGS });
+
+/* ================= Estado ================= */
+let PATIENTS = [], APPTS = [];
+const pMap = () => Object.fromEntries(PATIENTS.map(p => [p.id, p]));
+async function reload() { PATIENTS = await DB.all('patients'); APPTS = await DB.all('appointments'); PATIENTS.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')); }
+let agendaDay = todayStr();
+let agendaMode = 'dia';
+
+/* ================= Sheets (telas por cima) ================= */
+function openSheet(title, html, onMount) {
+  const bg = document.createElement('div'); bg.className = 'sheet-bg';
+  bg.innerHTML = `<div class="sheet" role="dialog"><div class="sheet-head"><h3>${esc(title)}</h3><button class="x" aria-label="Fechar">✕</button></div><div class="sheet-body">${html}</div></div>`;
+  const close = () => { bg.remove(); document.body.style.overflow = $$('.sheet-bg').length ? 'hidden' : ''; };
+  bg.addEventListener('click', e => { if (e.target === bg) close(); });
+  $('.x', bg).onclick = close;
+  $('#sheets').appendChild(bg); document.body.style.overflow = 'hidden';
+  if (onMount) onMount($('.sheet-body', bg), close);
+  return close;
+}
+function confirmBox(msg) { return Promise.resolve(window.confirm(msg)); }
+
+/* ================= Formulário de paciente ================= */
+async function patientForm(p) {
+  const isNew = !p;
+  p = p || { id: uid(), name: '', cpf: '', birth: '', phone: '', cep: '', street: '', number: '', comp: '', district: '', city: '', uf: '', payment: 'Pix', hasIns: false, insurance: '', insNumber: '', hasXray: false, notes: '', createdAt: Date.now() };
+  const files = isNew ? [] : await DB.byIndex('files', 'patientId', p.id);
+  let pendingFiles = [];
+  const html = `
+  <div class="fieldset"><div class="legend">Dados pessoais</div>
+    <label>Nome completo *</label><input id="f-name" value="${esc(p.name)}" autocomplete="off">
+    <div class="grid2">
+      <div><label>CPF</label><input id="f-cpf" inputmode="numeric" value="${esc(p.cpf)}" placeholder="000.000.000-00"><div class="hint" id="cpf-msg"></div></div>
+      <div><label>Nascimento</label><input id="f-birth" inputmode="numeric" placeholder="dd/mm/aaaa" value="${esc(fmtDate(p.birth))}"><div class="hint" id="birth-msg"></div></div>
+    </div>
+    <label>Telefone / WhatsApp *</label><input id="f-phone" type="tel" inputmode="tel" value="${esc(p.phone)}" placeholder="(00) 00000-0000">
+  </div>
+  <div class="fieldset"><div class="legend">Endereço (opcional)</div>
+    <div class="grid2">
+      <div><label>CEP</label><input id="f-cep" inputmode="numeric" value="${esc(p.cep)}" placeholder="00000-000"></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn block" id="cep-btn" type="button">🔎 Buscar CEP</button></div>
+    </div>
+    <div class="hint" id="cep-msg"></div>
+    <label>Rua / Logradouro</label><input id="f-street" value="${esc(p.street)}">
+    <div class="grid2">
+      <div><label>Número</label><input id="f-number" value="${esc(p.number)}"></div>
+      <div><label>Complemento</label><input id="f-comp" value="${esc(p.comp)}"></div>
+    </div>
+    <label>Bairro</label><input id="f-district" value="${esc(p.district)}">
+    <div class="grid3">
+      <div><label>Cidade</label><input id="f-city" value="${esc(p.city)}"></div>
+      <div><label>UF</label><input id="f-uf" maxlength="2" value="${esc(p.uf)}" style="text-transform:uppercase"></div>
+    </div>
+  </div>
+  <div class="fieldset"><div class="legend">Pagamento e convênio</div>
+    <label>Forma de pagamento</label>
+    <select id="f-pay">${PAYMENTS.map(x => `<option ${x === p.payment ? 'selected' : ''}>${x}</option>`).join('')}</select>
+    <label>Possui convênio?</label>
+    <div class="toggle" id="ins-t"><button type="button" data-v="0" class="${!p.hasIns ? 'on' : ''}">Não</button><button type="button" data-v="1" class="${p.hasIns ? 'on' : ''}">Sim</button></div>
+    <div id="ins-box" style="${p.hasIns ? '' : 'display:none'}">
+      <label>Qual convênio?</label><input id="f-ins" value="${esc(p.insurance)}" placeholder="Ex.: Odontoprev, Amil Dental, Uniodonto...">
+      <label>Nº da carteirinha (opcional)</label><input id="f-insn" value="${esc(p.insNumber)}">
+    </div>
+  </div>
+  <div class="fieldset"><div class="legend">Radiografia / exames</div>
+    <label>Possui radiografia?</label>
+    <div class="toggle" id="xr-t"><button type="button" data-v="0" class="${!p.hasXray ? 'on' : ''}">Não</button><button type="button" data-v="1" class="${p.hasXray ? 'on' : ''}">Sim</button></div>
+    <div id="xr-box" style="${p.hasXray ? '' : 'display:none'}">
+      <div id="file-list"></div>
+      <label class="btn block" style="margin-top:10px;color:var(--pri);font-size:15px">📎 Anexar arquivo (PDF ou foto)
+        <input type="file" id="f-file" accept="application/pdf,image/*" multiple style="display:none"></label>
+    </div>
+  </div>
+  <div class="fieldset"><div class="legend">Observações</div>
+    <textarea id="f-notes" placeholder="Alergias, medicamentos, histórico...">${esc(p.notes)}</textarea>
+  </div>
+  <button class="btn pri block" id="save-p">💾 Salvar paciente</button>
+  ${isNew ? '' : '<button class="btn danger block" id="del-p" style="margin-top:10px">Excluir paciente</button>'}`;
+
+  return new Promise(resolve => {
+    openSheet(isNew ? 'Novo paciente' : 'Editar paciente', html, (el, close) => {
+      const cpf = $('#f-cpf', el), phone = $('#f-phone', el), cep = $('#f-cep', el);
+      cpf.oninput = () => { cpf.value = maskCPF(cpf.value); const d = digits(cpf.value); $('#cpf-msg', el).innerHTML = d.length === 11 ? (validCPF(d) ? '<span style="color:var(--ok)">✓ CPF válido</span>' : '<span class="err">CPF inválido</span>') : ''; };
+      phone.oninput = () => phone.value = maskPhone(phone.value);
+      const birth = $('#f-birth', el), bmsg = $('#birth-msg', el);
+      const showBirth = () => {
+        const v = birth.value.trim(); if (!v) { bmsg.textContent = ''; return; }
+        const r = parseDateBR(v);
+        bmsg.innerHTML = r ? `<span style="color:var(--ok)">✓ ${age(r)} anos</span>` : (digits(v).length >= 8 ? '<span class="err">Data inválida</span>' : '');
+      };
+      birth.addEventListener('paste', e => {
+        const txt = (e.clipboardData || window.clipboardData).getData('text');
+        const r = parseDateBR(txt);
+        e.preventDefault();
+        birth.value = r ? fmtDate(r) : maskDate(txt); showBirth();
+      });
+      birth.oninput = () => { if (!/[a-zç]/i.test(birth.value)) birth.value = maskDate(birth.value); showBirth(); };
+      showBirth();
+      const buscaCEP = async () => {
+        const c = digits(cep.value); const msg = $('#cep-msg', el);
+        if (c.length !== 8) { msg.innerHTML = '<span class="err">Digite os 8 números do CEP</span>'; return; }
+        msg.textContent = 'Buscando...';
+        try {
+          const r = await fetch(`https://viacep.com.br/ws/${c}/json/`); const j = await r.json();
+          if (j.erro) { msg.innerHTML = '<span class="err">CEP não encontrado</span>'; return; }
+          $('#f-street', el).value = j.logradouro || ''; $('#f-district', el).value = j.bairro || '';
+          $('#f-city', el).value = j.localidade || ''; $('#f-uf', el).value = j.uf || '';
+          if (j.complemento && !$('#f-comp', el).value) $('#f-comp', el).value = j.complemento;
+          msg.innerHTML = '<span style="color:var(--ok)">✓ Endereço preenchido</span>'; $('#f-number', el).focus();
+        } catch (e) { msg.innerHTML = '<span class="err">Sem internet para buscar o CEP. Preencha manualmente.</span>'; }
+      };
+      cep.oninput = () => { cep.value = maskCEP(cep.value); if (digits(cep.value).length === 8) buscaCEP(); };
+      $('#cep-btn', el).onclick = buscaCEP;
+      const tog = (id, box) => $$(`#${id} button`, el).forEach(b => b.onclick = () => { $$(`#${id} button`, el).forEach(x => x.classList.toggle('on', x === b)); $(`#${box}`, el).style.display = b.dataset.v === '1' ? '' : 'none'; });
+      tog('ins-t', 'ins-box'); tog('xr-t', 'xr-box');
+      $('#f-pay', el).onchange = e => { if (e.target.value === 'Convênio') $$('#ins-t button', el)[1].click(); };
+      const renderFiles = () => {
+        const all = [...files.map(f => ({ ...f, saved: true })), ...pendingFiles];
+        $('#file-list', el).innerHTML = all.length ? all.map(f => `<div class="file"><span class="fi">${fileIcon(f.type)}</span><div class="grow"><div class="name small">${esc(f.name)}</div><div class="tiny muted">${fmtSize(f.size)}${f.saved ? '' : ' · será salvo'}</div></div>
+          <button type="button" class="btn sm" data-open="${f.id}">Abrir</button><button type="button" class="btn sm danger" data-rm="${f.id}">✕</button></div>`).join('') : '<div class="hint">Nenhum arquivo anexado.</div>';
+        $$('[data-open]', el).forEach(b => b.onclick = () => { const f = all.find(x => x.id === b.dataset.open); openBlob(f.blob, f.name); });
+        $$('[data-rm]', el).forEach(b => b.onclick = async () => {
+          const id = b.dataset.rm;
+          if (files.find(x => x.id === id)) { if (!await confirmBox('Remover este arquivo?')) return; await DB.del('files', id); files.splice(files.findIndex(x => x.id === id), 1); }
+          else pendingFiles = pendingFiles.filter(x => x.id !== id);
+          renderFiles();
+        });
+      };
+      renderFiles();
+      $('#f-file', el).onchange = e => {
+        for (const file of e.target.files) {
+          if (file.size > 25 * 1048576) { toast(`${file.name} é muito grande (máx. 25 MB)`); continue; }
+          pendingFiles.push({ id: uid(), patientId: p.id, name: file.name, type: file.type, size: file.size, blob: file, addedAt: Date.now() });
+        }
+        e.target.value = ''; renderFiles();
+      };
+      $('#save-p', el).onclick = async () => {
+        const name = $('#f-name', el).value.trim();
+        if (!name) { toast('Informe o nome do paciente'); $('#f-name', el).focus(); return; }
+        if (digits(phone.value).length < 10) { toast('Informe um telefone válido com DDD'); phone.focus(); return; }
+        const birthVal = parseDateBR(birth.value);
+        if (birth.value.trim() && !birthVal) { toast('Data de nascimento inválida (use dd/mm/aaaa)'); birth.focus(); return; }
+        const c = digits(cpf.value);
+        if (c && !validCPF(c) && !await confirmBox('O CPF parece inválido. Salvar mesmo assim?')) return;
+        if (c) { const dup = PATIENTS.find(x => x.id !== p.id && digits(x.cpf) === c); if (dup && !await confirmBox(`Já existe paciente com este CPF (${dup.name}). Salvar mesmo assim?`)) return; }
+        Object.assign(p, {
+          name, cpf: cpf.value, birth: birthVal || '', phone: phone.value, cep: cep.value,
+          street: $('#f-street', el).value.trim(), number: $('#f-number', el).value.trim(), comp: $('#f-comp', el).value.trim(),
+          district: $('#f-district', el).value.trim(), city: $('#f-city', el).value.trim(), uf: $('#f-uf', el).value.trim().toUpperCase(),
+          payment: $('#f-pay', el).value, hasIns: $('#ins-t .on', el).dataset.v === '1', insurance: $('#f-ins', el).value.trim(), insNumber: $('#f-insn', el).value.trim(),
+          hasXray: $('#xr-t .on', el).dataset.v === '1', notes: $('#f-notes', el).value.trim(), updatedAt: Date.now()
+        });
+        await DB.put('patients', p);
+        for (const f of pendingFiles) await DB.put('files', f);
+        await reload(); close(); toast('Paciente salvo ✓'); render(); resolve(p);
+      };
+      const del = $('#del-p', el);
+      if (del) del.onclick = async () => {
+        const n = APPTS.filter(a => a.patientId === p.id).length;
+        if (!await confirmBox(`Excluir ${p.name}${n ? ` e suas ${n} consulta(s)` : ''}? Isso não pode ser desfeito.`)) return;
+        for (const a of APPTS.filter(a => a.patientId === p.id)) await DB.del('appointments', a.id);
+        for (const f of files) await DB.del('files', f.id);
+        await DB.del('patients', p.id); await reload(); close(); location.hash = '#pacientes'; render(); toast('Paciente excluído'); resolve(null);
+      };
+    });
+  });
+}
+
+function openBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
+  if (!/pdf|image/.test(blob.type)) a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+/* ================= Formulário de consulta ================= */
+function apptForm(a, presetPatientId) {
+  const isNew = !a;
+  a = a || { id: uid(), patientId: presetPatientId || '', date: agendaDay < todayStr() ? todayStr() : agendaDay, time: '', duration: SETTINGS.defaultDuration, procedure: '', value: '', payment: '', status: 'agendada', remind: SETTINGS.defaultRemind, notes: '', notified: false, createdAt: Date.now() };
+  if (!PATIENTS.length) { toast('Cadastre um paciente primeiro'); patientForm().then(p => p && apptForm(null, p.id)); return; }
+  const procs = SETTINGS.procedures;
+  const isCustomProc = a.procedure && !procs.includes(a.procedure);
+  const html = `
+  <div class="fieldset"><div class="legend">Paciente</div>
+    <label>Paciente *</label>
+    <select id="a-pat"><option value="">Selecione...</option>${PATIENTS.map(p => `<option value="${p.id}" ${p.id === a.patientId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+    <div class="hint"><a href="#" id="a-newp" style="color:var(--pri)">+ Cadastrar novo paciente</a></div>
+  </div>
+  <div class="fieldset"><div class="legend">Quando</div>
+    <div class="grid2">
+      <div><label>Data *</label><input id="a-date" type="date" value="${esc(a.date)}"></div>
+      <div><label>Horário *</label><input id="a-time" type="time" value="${esc(a.time)}"></div>
+    </div>
+    <label>Duração</label>
+    <select id="a-dur">${[15, 20, 30, 40, 45, 60, 90, 120, 180].map(m => `<option value="${m}" ${m == a.duration ? 'selected' : ''}>${m < 60 ? m + ' min' : (m / 60) + 'h' + (m % 60 ? m % 60 : '')}</option>`).join('')}</select>
+    <div class="hint" id="conflict"></div>
+    <label>🔔 Lembrete</label>
+    <select id="a-rem">${REMIND.map(([v, l]) => `<option value="${v}" ${v == a.remind ? 'selected' : ''}>${l}</option>`).join('')}</select>
+  </div>
+  <div class="fieldset"><div class="legend">Atendimento</div>
+    <label>Procedimento *</label>
+    <select id="a-proc">${procs.map(x => `<option ${x === a.procedure ? 'selected' : ''}>${esc(x)}</option>`).join('')}<option value="__other" ${isCustomProc ? 'selected' : ''}>Outro (digitar)...</option></select>
+    <input id="a-proc2" style="margin-top:8px;${isCustomProc ? '' : 'display:none'}" placeholder="Descreva o procedimento" value="${isCustomProc ? esc(a.procedure) : ''}">
+    <div class="grid2">
+      <div><label>Valor (R$)</label><input id="a-val" inputmode="decimal" placeholder="0,00" value="${a.value === '' ? '' : String(a.value).replace('.', ',')}"></div>
+      <div><label>Pagamento</label><select id="a-pay"><option value="">(do cadastro)</option>${PAYMENTS.map(x => `<option ${x === a.payment ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+    </div>
+    <label>Situação</label>
+    <select id="a-st">${Object.entries(STATUS).map(([k, [l]]) => `<option value="${k}" ${k === a.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <label>Observações</label><textarea id="a-notes" placeholder="Dente, região, anotações...">${esc(a.notes)}</textarea>
+  </div>
+  <button class="btn pri block" id="save-a">💾 Salvar consulta</button>
+  ${isNew ? '' : '<button class="btn danger block" id="del-a" style="margin-top:10px">Excluir consulta</button>'}`;
+  openSheet(isNew ? 'Nova consulta' : 'Editar consulta', html, (el, close) => {
+    $('#a-proc', el).onchange = e => { $('#a-proc2', el).style.display = e.target.value === '__other' ? '' : 'none'; };
+    $('#a-newp', el).onclick = e => { e.preventDefault(); close(); patientForm().then(p => { if (p) apptForm(Object.assign(a, { patientId: p.id }), p.id); }); };
+    const checkConflict = () => {
+      const d = $('#a-date', el).value, t = $('#a-time', el).value, dur = +$('#a-dur', el).value;
+      if (!d || !t) { $('#conflict', el).textContent = ''; return; }
+      const s = parseLocal(d, t).getTime(), e = s + dur * 60000;
+      const c = APPTS.filter(x => x.id !== a.id && x.date === d && !['cancelada', 'faltou'].includes(x.status)).find(x => { const xs = parseLocal(x.date, x.time).getTime(); return s < xs + (x.duration || 60) * 60000 && xs < e; });
+      $('#conflict', el).innerHTML = c ? `<span style="color:var(--warn)">⚠️ Conflito com ${esc(pMap()[c.patientId]?.name || '')} às ${c.time}</span>` : '';
+    };
+    ['#a-date', '#a-time', '#a-dur'].forEach(s => $(s, el).onchange = checkConflict); checkConflict();
+    $('#save-a', el).onclick = async () => {
+      const pid = $('#a-pat', el).value, d = $('#a-date', el).value, t = $('#a-time', el).value;
+      let proc = $('#a-proc', el).value; if (proc === '__other') proc = $('#a-proc2', el).value.trim();
+      if (!pid) return toast('Selecione o paciente');
+      if (!d || !t) return toast('Informe data e horário');
+      if (!proc) return toast('Informe o procedimento');
+      const changedTime = a.date !== d || a.time !== t || a.remind != $('#a-rem', el).value;
+      Object.assign(a, { patientId: pid, date: d, time: t, duration: +$('#a-dur', el).value, procedure: proc, value: parseMoney($('#a-val', el).value), payment: $('#a-pay', el).value, status: $('#a-st', el).value, remind: +$('#a-rem', el).value, notes: $('#a-notes', el).value.trim(), updatedAt: Date.now() });
+      if (changedTime) a.notified = false;
+      await DB.put('appointments', a); await reload(); close();
+      agendaDay = d; if (location.hash !== '#agenda' && !location.hash.startsWith('#paciente/')) location.hash = '#agenda';
+      render(); toast('Consulta salva ✓');
+      if (a.remind > 0) ensureNotifyPermission();
+      if (isNew) apptDetail(a, true);
+    };
+    const del = $('#del-a', el);
+    if (del) del.onclick = async () => { if (!await confirmBox('Excluir esta consulta?')) return; await DB.del('appointments', a.id); await reload(); close(); $$('.sheet-bg').forEach(x => x.remove()); document.body.style.overflow = ''; render(); toast('Consulta excluída'); };
+  });
+}
+
+/* ================= Detalhe da consulta ================= */
+function apptDetail(a, justCreated) {
+  const p = pMap()[a.patientId] || {};
+  const [sl, sc] = STATUS[a.status] || STATUS.agendada;
+  const html = `
+  ${justCreated ? '<div class="banner info">✅ Consulta agendada! Envie a confirmação para o paciente:</div>' : ''}
+  <div class="card">
+    <div class="row"><div class="avatar">${esc(initials(p.name))}</div><div class="grow"><div class="name">${esc(p.name)}</div><div class="small muted">${esc(p.phone || '')}</div></div><span class="chip ${sc}">${sl}</span></div>
+    <hr>
+    <div class="kv">
+      <span class="k">Data</span><b>${fmtDate(a.date)} · ${fmtLong(a.date).split(',')[0]}</b>
+      <span class="k">Horário</span><b>${esc(a.time)} (${a.duration || 60} min)</b>
+      <span class="k">Procedimento</span><span>${esc(a.procedure)}</span>
+      ${a.value !== '' ? `<span class="k">Valor</span><span>${money(a.value)}</span>` : ''}
+      <span class="k">Pagamento</span><span>${esc(a.payment || p.payment || '-')}${p.hasIns && p.insurance ? ` · ${esc(p.insurance)}` : ''}</span>
+      <span class="k">Lembrete</span><span>${(REMIND.find(r => r[0] == a.remind) || [0, '-'])[1]}</span>
+      ${a.notes ? `<span class="k">Obs.</span><span>${esc(a.notes)}</span>` : ''}
+    </div>
+  </div>
+  <h2>Mudar situação</h2>
+  <div class="btns" id="st-btns" style="margin-top:0">${Object.entries(STATUS).map(([k, [l]]) => `<button class="btn sm ${k === a.status ? 'pri' : ''}" data-st="${k}">${l}</button>`).join('')}</div>
+  <h2>WhatsApp</h2>
+  <div id="wa-list">${SETTINGS.templates.map(t => `<div class="tpl" data-t="${t.id}"><b>💬 ${esc(t.title)}</b><div class="tx">${esc(fillTemplate(t.text, p, a)).slice(0, 110)}…</div></div>`).join('')}</div>
+  <button class="btn wa block" id="wa-free">Abrir conversa sem mensagem</button>
+  <h2>Ações</h2>
+  <div class="btns" style="margin-top:0">
+    <button class="btn" id="d-edit">✏️ Editar</button>
+    <button class="btn" id="d-ics">📆 Agenda do celular</button>
+    <button class="btn" id="d-pat">👤 Ver paciente</button>
+    <button class="btn" id="d-again">🔁 Agendar retorno</button>
+  </div>`;
+  openSheet('Consulta', html, (el, close) => {
+    $$('[data-st]', el).forEach(b => b.onclick = async () => { a.status = b.dataset.st; await DB.put('appointments', a); await reload(); close(); render(); apptDetail(a); });
+    $$('[data-t]', el).forEach(d => d.onclick = () => { const t = SETTINGS.templates.find(x => x.id === d.dataset.t); waPreview(p, fillTemplate(t.text, p, a)); });
+    $('#wa-free', el).onclick = () => openWA(p.phone, '');
+    $('#d-edit', el).onclick = () => { close(); apptForm(a); };
+    $('#d-ics', el).onclick = () => downloadICS([a]);
+    $('#d-pat', el).onclick = () => { close(); location.hash = '#paciente/' + p.id; };
+    $('#d-again', el).onclick = () => { close(); const n = { ...a }; apptForm(null, a.patientId); setTimeout(() => { const pr = $('#a-proc'); if (pr) { pr.value = 'Retorno'; } }, 50); };
+  });
+}
+
+/* ================= WhatsApp ================= */
+function fillTemplate(text, p, a) {
+  p = p || {}; a = a || {};
+  const map = {
+    nome: firstName(p.name), nome_completo: p.name || '', data: a.date ? fmtDate(a.date) : '', hora: a.time || '',
+    dia_semana: a.date ? WDL[parseLocal(a.date).getDay()] : '', procedimento: a.procedure || '', valor: a.value !== '' && a.value != null ? money(a.value) : '',
+    pix: SETTINGS.pix || '(chave pix)', clinica: SETTINGS.clinic || '', convenio: p.insurance || ''
+  };
+  return text.replace(/\{(\w+)\}/g, (m, k) => k in map ? map[k] : m);
+}
+function waNumber(phone) { let d = digits(phone); if (d.startsWith('0')) d = d.replace(/^0+/, ''); if (d.length <= 11) d = '55' + d; return d; }
+function openWA(phone, text) {
+  if (digits(phone).length < 10) return toast('Paciente sem telefone válido');
+  const url = `https://wa.me/${waNumber(phone)}${text ? '?text=' + encodeURIComponent(text) : ''}`;
+  window.open(url, '_blank');
+}
+function waPreview(p, text) {
+  openSheet('Mensagem para ' + firstName(p.name), `
+    <label>Revise e ajuste se quiser:</label>
+    <textarea id="wa-text" style="min-height:200px">${esc(text)}</textarea>
+    <button class="btn wa block" id="wa-go" style="margin-top:12px">Abrir no WhatsApp ➜</button>
+    <button class="btn block" id="wa-copy" style="margin-top:8px">Copiar texto</button>`, (el, close) => {
+    $('#wa-go', el).onclick = () => { openWA(p.phone, $('#wa-text', el).value); close(); };
+    $('#wa-copy', el).onclick = async () => { try { await navigator.clipboard.writeText($('#wa-text', el).value); toast('Copiado ✓'); } catch { toast('Não foi possível copiar'); } };
+  });
+}
+function pickTemplateForPatient(p) {
+  const next = APPTS.filter(a => a.patientId === p.id && parseLocal(a.date, a.time) >= new Date() && a.status !== 'cancelada').sort(byDateTime)[0];
+  openSheet('Mensagem para ' + firstName(p.name), `
+    ${next ? `<div class="banner info">Usando dados da próxima consulta: ${fmtDate(next.date)} às ${next.time}</div>` : ''}
+    ${SETTINGS.templates.map(t => `<div class="tpl" data-t="${t.id}"><b>💬 ${esc(t.title)}</b><div class="tx">${esc(fillTemplate(t.text, p, next)).slice(0, 110)}…</div></div>`).join('')}
+    <button class="btn wa block" id="wa-free">Abrir conversa sem mensagem</button>`, (el, close) => {
+    $$('[data-t]', el).forEach(d => d.onclick = () => { const t = SETTINGS.templates.find(x => x.id === d.dataset.t); close(); waPreview(p, fillTemplate(t.text, p, next)); });
+    $('#wa-free', el).onclick = () => openWA(p.phone, '');
+  });
+}
+
+/* ================= Calendário (.ics) ================= */
+function icsDate(d) { return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`; }
+function icsEsc(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;'); }
+function downloadICS(list) {
+  const pm = pMap(); const now = new Date();
+  const ev = list.map(a => {
+    const p = pm[a.patientId] || {}; const s = parseLocal(a.date, a.time); const e = new Date(s.getTime() + (a.duration || 60) * 60000);
+    return ['BEGIN:VEVENT', `UID:${a.id}@agendamentos-evilly`, `DTSTAMP:${icsDate(now)}`, `DTSTART:${icsDate(s)}`, `DTEND:${icsDate(e)}`,
+      `SUMMARY:${icsEsc('🦷 ' + (p.name || 'Paciente') + ' - ' + a.procedure)}`,
+      `DESCRIPTION:${icsEsc(`Paciente: ${p.name || ''}\nTelefone: ${p.phone || ''}\nProcedimento: ${a.procedure}${a.value !== '' ? '\nValor: ' + money(a.value) : ''}${a.notes ? '\nObs: ' + a.notes : ''}`)}`,
+      ...(a.remind > 0 ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc('Consulta: ' + (p.name || ''))}`, `TRIGGER:-PT${a.remind}M`, 'END:VALARM'] : []),
+      'END:VEVENT'].join('\r\n');
+  });
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Agendamentos da Evilly//PT-BR', 'CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob); const link = document.createElement('a');
+  link.href = url; link.download = list.length === 1 ? `consulta-${list[0].date}.ics` : 'consultas-evilly.ics';
+  document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  toast('Abra o arquivo baixado para adicionar à agenda do celular');
+}
+
+/* ================= Notificações ================= */
+async function ensureNotifyPermission(ask = true) {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied' || !ask) return false;
+  const r = await Notification.requestPermission(); return r === 'granted';
+}
+async function notify(title, body, tag) {
+  try {
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if (reg) await reg.showNotification(title, { body, tag, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [200, 100, 200], data: { url: './#agenda' } });
+    else new Notification(title, { body, tag, icon: 'icon-192.png' });
+  } catch (e) { console.warn(e); }
+}
+async function checkReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = Date.now(); const pm = pMap();
+  for (const a of APPTS) {
+    if (a.notified || !a.remind || ['cancelada', 'concluida', 'faltou'].includes(a.status)) continue;
+    const start = parseLocal(a.date, a.time).getTime();
+    if (now >= start - a.remind * 60000 && now < start) {
+      const p = pm[a.patientId] || {};
+      const when = a.date === todayStr() ? `hoje às ${a.time}` : `${fmtDate(a.date)} às ${a.time}`;
+      await notify(`🦷 Consulta ${when}`, `${p.name || 'Paciente'} · ${a.procedure}`, 'appt-' + a.id);
+      a.notified = true; await DB.put('appointments', a);
+    }
+  }
+}
+
+/* ================= Telas ================= */
+const byDateTime = (a, b) => (a.date + a.time).localeCompare(b.date + b.time);
+function apptCard(a, showDate) {
+  const p = pMap()[a.patientId] || { name: '(paciente excluído)' };
+  const [sl, sc] = STATUS[a.status] || STATUS.agendada;
+  return `<div class="card clickable row" data-appt="${a.id}" style="${['cancelada', 'faltou'].includes(a.status) ? 'opacity:.6' : ''}">
+    <div class="time">${esc(a.time)}${showDate ? `<div class="tiny muted" style="font-weight:500">${fmtDate(a.date).slice(0, 5)}</div>` : ''}</div>
+    <div class="grow"><div class="name">${esc(p.name)}</div><div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.procedure)}${a.value !== '' ? ' · ' + money(a.value) : ''}</div></div>
+    <div style="text-align:right"><span class="chip ${sc}">${sl}</span>${p.hasIns ? '<div class="tiny muted" style="margin-top:4px">convênio</div>' : ''}</div>
+  </div>`;
+}
+function bindAppts(root) { $$('[data-appt]', root).forEach(c => c.onclick = () => apptDetail(APPTS.find(a => a.id === c.dataset.appt))); }
+
+function viewAgenda(app) {
+  const today = todayStr();
+  const active = APPTS.filter(a => a.status !== 'cancelada');
+  const datesWith = new Set(active.map(a => a.date));
+  // tira de dias: 7 antes e 45 depois do dia selecionado
+  const base = parseLocal(agendaDay); const days = [];
+  for (let i = -7; i <= 45; i++) { const d = new Date(base); d.setDate(d.getDate() + i); days.push(d); }
+  const todayList = APPTS.filter(a => a.date === today && a.status !== 'cancelada');
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekCount = active.filter(a => a.date >= today && a.date <= ymd(weekEnd)).length;
+  const monthKey = today.slice(0, 7);
+  const monthTotal = APPTS.filter(a => a.date.startsWith(monthKey) && a.status === 'concluida' && a.value !== '').reduce((s, a) => s + Number(a.value), 0);
+  let html = `<div class="btns" style="margin:0 0 12px"><button class="btn pri grow" id="q-pat">👤 Novo paciente</button><button class="btn grow" id="q-appt" style="color:var(--rose);border-color:var(--rose-soft)">📅 Nova consulta</button></div>
+  <div class="statgrid"><div class="stat"><b>${todayList.length}</b><span>hoje</span></div><div class="stat"><b>${weekCount}</b><span>próx. 7 dias</span></div><div class="stat"><b style="font-size:15px;line-height:24px">${money(monthTotal) || 'R$ 0'}</b><span>concluído no mês</span></div></div>`;
+  if ('Notification' in window && Notification.permission === 'default') html += `<div class="banner clickable" id="ask-notif">🔔 Toque aqui para ativar os lembretes de consulta</div>`;
+  if ('Notification' in window && Notification.permission === 'denied') html += `<div class="banner">🔕 Notificações bloqueadas. Ative nas configurações do navegador, ou use “📆 Agenda do celular” em cada consulta.</div>`;
+  html += `<div class="seg"><button data-m="dia" class="${agendaMode === 'dia' ? 'on' : ''}">Por dia</button><button data-m="proximas" class="${agendaMode === 'proximas' ? 'on' : ''}">Próximas</button><button data-m="historico" class="${agendaMode === 'historico' ? 'on' : ''}">Histórico</button></div>`;
+  if (agendaMode === 'dia') {
+    html += `<div class="row" style="margin-bottom:6px"><input type="date" id="jump" value="${agendaDay}" style="flex:1"><button class="btn" id="go-today">Hoje</button></div>`;
+    html += `<div class="days" id="days">${days.map(d => { const s = ymd(d); return `<div class="day ${s === agendaDay ? 'on' : ''}" data-d="${s}"><div class="dw">${s === today ? 'hoje' : WD[d.getDay()]}</div><div class="dn">${d.getDate()}</div>${datesWith.has(s) ? '<span class="dot"></span>' : ''}</div>`; }).join('')}</div>`;
+    const list = APPTS.filter(a => a.date === agendaDay).sort(byDateTime);
+    html += `<h2>${agendaDay === today ? 'Hoje · ' : ''}${fmtLong(agendaDay)}</h2>`;
+    html += list.length ? list.map(a => apptCard(a)).join('') : `<div class="empty"><div class="big">🗓️</div>Nenhuma consulta neste dia.<br><br><button class="btn pri" id="new-here">+ Agendar neste dia</button></div>`;
+  } else {
+    const nowKey = today + new Date().toTimeString().slice(0, 5);
+    const list = agendaMode === 'proximas'
+      ? APPTS.filter(a => (a.date + a.time) >= nowKey && a.status !== 'cancelada').sort(byDateTime)
+      : APPTS.filter(a => (a.date + a.time) < nowKey || a.status === 'cancelada').sort(byDateTime).reverse().slice(0, 200);
+    if (!list.length) html += `<div class="empty"><div class="big">${agendaMode === 'proximas' ? '🗓️' : '📂'}</div>${agendaMode === 'proximas' ? 'Nenhuma consulta futura.' : 'Nada no histórico ainda.'}</div>`;
+    let last = '';
+    for (const a of list) { if (a.date !== last) { html += `<h2>${a.date === today ? 'Hoje · ' : ''}${fmtLong(a.date)}${a.date.slice(0, 4) != today.slice(0, 4) ? ' ' + a.date.slice(0, 4) : ''}</h2>`; last = a.date; } html += apptCard(a); }
+    if (agendaMode === 'proximas' && list.length) html += `<button class="btn block" id="ics-all" style="margin-top:8px">📆 Enviar todas as próximas para a agenda do celular</button>`;
+  }
+  app.innerHTML = html;
+  $$('[data-m]', app).forEach(b => b.onclick = () => { agendaMode = b.dataset.m; render(); });
+  $$('[data-d]', app).forEach(b => b.onclick = () => { agendaDay = b.dataset.d; render(); });
+  const on = $('.day.on', app); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  const j = $('#jump', app); if (j) j.onchange = () => { if (j.value) { agendaDay = j.value; render(); } };
+  const gt = $('#go-today', app); if (gt) gt.onclick = () => { agendaDay = today; render(); };
+  const nh = $('#new-here', app); if (nh) nh.onclick = () => apptForm();
+  $('#q-pat', app).onclick = () => $('#quick-patient').click();
+  $('#q-appt', app).onclick = () => apptForm();
+  const an = $('#ask-notif', app); if (an) an.onclick = async () => { await ensureNotifyPermission(); render(); checkReminders(); };
+  const ia = $('#ics-all', app); if (ia) ia.onclick = () => downloadICS(APPTS.filter(a => (a.date + a.time) >= nowKey() && a.status !== 'cancelada'));
+  bindAppts(app);
+}
+const nowKey = () => todayStr() + new Date().toTimeString().slice(0, 5);
+
+let pSearch = '';
+function viewPatients(app) {
+  const q = pSearch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const qd = digits(pSearch);
+  const list = PATIENTS.filter(p => !q || p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q) || (qd && (digits(p.cpf).includes(qd) || digits(p.phone).includes(qd))));
+  const md = todayStr().slice(5);
+  const bdays = PATIENTS.filter(p => p.birth && p.birth.slice(5) === md);
+  app.innerHTML = `<input class="search" id="ps" placeholder="🔎 Buscar por nome, CPF ou telefone" value="${esc(pSearch)}">
+    ${bdays.length ? `<div class="banner info">🎂 Aniversariante(s) hoje: ${bdays.map(p => `<a href="#paciente/${p.id}" style="color:inherit;font-weight:700">${esc(p.name)}</a>`).join(', ')}</div>` : ''}
+    <div class="small muted" style="margin:0 4px 8px">${PATIENTS.length} paciente(s)</div>
+    <div id="plist">${list.length ? list.map(p => `<div class="card clickable row" data-p="${p.id}"><div class="avatar">${esc(initials(p.name))}</div><div class="grow"><div class="name">${esc(p.name)}</div><div class="small muted">${esc(p.phone)}${p.hasIns && p.insurance ? ' · ' + esc(p.insurance) : ''}</div></div>${p.hasXray ? '<span title="Possui radiografia">🩻</span>' : ''}</div>`).join('') : `<div class="empty"><div class="big">👥</div>${PATIENTS.length ? 'Ninguém encontrado.' : 'Nenhum paciente cadastrado ainda.<br>Toque no <b>+</b> para cadastrar.'}</div>`}</div>`;
+  const ps = $('#ps', app);
+  ps.oninput = () => { pSearch = ps.value; const pos = ps.selectionStart; render(); const n = $('#ps'); n.focus(); n.setSelectionRange(pos, pos); };
+  $$('[data-p]', app).forEach(c => c.onclick = () => location.hash = '#paciente/' + c.dataset.p);
+}
+
+async function viewPatient(app, id) {
+  const p = PATIENTS.find(x => x.id === id);
+  if (!p) { location.hash = '#pacientes'; return; }
+  const files = await DB.byIndex('files', 'patientId', id);
+  const appts = APPTS.filter(a => a.patientId === id).sort(byDateTime).reverse();
+  const addr = [p.street && `${p.street}${p.number ? ', ' + p.number : ''}`, p.comp, p.district, p.city && `${p.city}${p.uf ? '/' + p.uf : ''}`, p.cep && 'CEP ' + p.cep].filter(Boolean).join(' · ');
+  const totalPago = appts.filter(a => a.status === 'concluida' && a.value !== '').reduce((s, a) => s + Number(a.value), 0);
+  app.innerHTML = `
+  <a href="#pacientes" class="small" style="color:var(--pri);text-decoration:none;display:inline-block;margin:0 4px 10px">‹ Pacientes</a>
+  <div class="card">
+    <div class="row"><div class="avatar" style="width:52px;height:52px;flex-basis:52px;font-size:19px">${esc(initials(p.name))}</div>
+      <div class="grow"><div class="name" style="font-size:18px;white-space:normal">${esc(p.name)}</div><div class="small muted">${p.birth ? `${fmtDate(p.birth)} · ${age(p.birth)} anos` : 'Nascimento não informado'}</div></div></div>
+    <div class="btns">
+      <button class="btn wa sm" id="pp-wa">💬 WhatsApp</button>
+      <a class="btn sm" href="tel:${digits(p.phone)}">📞 Ligar</a>
+      <button class="btn pri sm" id="pp-new">+ Consulta</button>
+      <button class="btn sm" id="pp-edit">✏️ Editar</button>
+    </div>
+  </div>
+  <div class="card"><div class="kv">
+    <span class="k">Telefone</span><span>${esc(p.phone || '-')}</span>
+    <span class="k">CPF</span><span>${esc(p.cpf || '-')}</span>
+    <span class="k">Endereço</span><span>${esc(addr || '-')}</span>
+    <span class="k">Pagamento</span><span>${esc(p.payment || '-')}</span>
+    <span class="k">Convênio</span><span>${p.hasIns ? esc(p.insurance || 'Sim') + (p.insNumber ? ` (nº ${esc(p.insNumber)})` : '') : 'Não'}</span>
+    <span class="k">Radiografia</span><span>${p.hasXray ? `Sim · ${files.length} arquivo(s)` : 'Não'}</span>
+    ${p.notes ? `<span class="k">Obs.</span><span style="white-space:pre-wrap">${esc(p.notes)}</span>` : ''}
+  </div></div>
+  ${files.length ? `<h2>Radiografias / exames</h2>${files.map(f => `<div class="file" style="background:var(--card)"><span class="fi">${fileIcon(f.type)}</span><div class="grow"><div class="name small">${esc(f.name)}</div><div class="tiny muted">${fmtSize(f.size)} · ${new Date(f.addedAt).toLocaleDateString('pt-BR')}</div></div><button class="btn sm" data-f="${f.id}">Abrir</button><button class="btn sm" data-share="${f.id}" title="Compartilhar">↗</button></div>`).join('')}` : ''}
+  <h2>Consultas (${appts.length})${totalPago ? ` · ${money(totalPago)} concluído` : ''}</h2>
+  <div id="pp-appts">${appts.length ? appts.map(a => apptCard(a, true)).join('') : '<div class="empty" style="padding:16px">Nenhuma consulta ainda.</div>'}</div>`;
+  $('#pp-wa', app).onclick = () => pickTemplateForPatient(p);
+  $('#pp-new', app).onclick = () => apptForm(null, p.id);
+  $('#pp-edit', app).onclick = () => patientForm(p);
+  $$('[data-f]', app).forEach(b => b.onclick = () => { const f = files.find(x => x.id === b.dataset.f); openBlob(f.blob, f.name); });
+  $$('[data-share]', app).forEach(b => b.onclick = async () => {
+    const f = files.find(x => x.id === b.dataset.share);
+    const file = new File([f.blob], f.name, { type: f.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: f.name }); } catch { } }
+    else toast('Compartilhamento não suportado neste aparelho');
+  });
+  bindAppts(app);
+}
+
+function viewMessages(app) {
+  app.innerHTML = `<div class="banner info">Modelos de mensagem para WhatsApp. Use as etiquetas abaixo — elas são trocadas automaticamente pelos dados do paciente e da consulta.</div>
+  <div class="small muted" style="margin:0 4px 12px;line-height:1.8">${['nome', 'nome_completo', 'data', 'hora', 'dia_semana', 'procedimento', 'valor', 'convenio', 'pix', 'clinica'].map(t => `<span class="chip">{${t}}</span>`).join(' ')}</div>
+  ${SETTINGS.templates.map(t => `<div class="tpl" data-e="${t.id}"><b>💬 ${esc(t.title)}</b><div class="tx">${esc(t.text)}</div></div>`).join('')}
+  <button class="btn pri block" id="t-new">+ Novo modelo</button>
+  <button class="btn block" id="t-reset" style="margin-top:8px">Restaurar modelos padrão</button>
+  <p class="small muted" style="text-align:center;margin-top:14px">Para enviar: abra uma consulta (Agenda) ou um paciente e toque em WhatsApp.</p>`;
+  const edit = t => {
+    const isNew = !t; t = t || { id: uid(), title: '', text: '' };
+    openSheet(isNew ? 'Novo modelo' : 'Editar modelo', `<label>Título</label><input id="t-title" value="${esc(t.title)}"><label>Mensagem</label><textarea id="t-text" style="min-height:180px">${esc(t.text)}</textarea>
+      <div class="hint">Dica: *texto* fica em negrito no WhatsApp.</div>
+      <button class="btn pri block" id="t-save" style="margin-top:12px">Salvar</button>${isNew ? '' : '<button class="btn danger block" id="t-del" style="margin-top:8px">Excluir modelo</button>'}`, (el, close) => {
+      $('#t-save', el).onclick = async () => {
+        t.title = $('#t-title', el).value.trim() || 'Sem título'; t.text = $('#t-text', el).value;
+        if (isNew) SETTINGS.templates.push(t); else SETTINGS.templates = SETTINGS.templates.map(x => x.id === t.id ? t : x);
+        await saveSettings(); close(); render(); toast('Modelo salvo ✓');
+      };
+      const d = $('#t-del', el); if (d) d.onclick = async () => { if (!await confirmBox('Excluir este modelo?')) return; SETTINGS.templates = SETTINGS.templates.filter(x => x.id !== t.id); await saveSettings(); close(); render(); };
+    });
+  };
+  $$('[data-e]', app).forEach(d => d.onclick = () => edit(SETTINGS.templates.find(x => x.id === d.dataset.e)));
+  $('#t-new', app).onclick = () => edit();
+  $('#t-reset', app).onclick = async () => { if (!await confirmBox('Restaurar os modelos padrão? Os seus modelos personalizados serão substituídos.')) return; SETTINGS.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)); await saveSettings(); render(); };
+}
+
+function viewSettings(app) {
+  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const lastBk = localStorage.getItem('evilly-last-backup');
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  app.innerHTML = `
+  ${standalone ? '' : `<h2>Instalar no celular</h2>
+  <div class="card">
+    ${installEvt ? '<div class="small">Instale o app para abrir pelo ícone, em tela cheia e sem internet.</div><button class="btn pri block" id="s-install" style="margin-top:10px">📲 Instalar app</button>'
+      : isIOS ? '<div class="small">No iPhone (Safari): toque em <b>Compartilhar</b> <span style="font-size:17px">⎋</span> e depois em <b>“Adicionar à Tela de Início”</b>.</div>'
+      : '<div class="small">No Chrome: toque no menu <b>⋮</b> e depois em <b>“Instalar app”</b> ou <b>“Adicionar à tela inicial”</b>.</div>'}
+  </div>`}
+  <h2>Lembretes</h2>
+  <div class="card">
+    <div class="row"><div class="grow"><b>Notificações</b><div class="small muted">${{ granted: '✅ Ativadas', denied: '🔕 Bloqueadas no navegador', default: 'Ainda não ativadas', unsupported: 'Não suportadas neste navegador' }[perm]}</div></div>
+    ${perm === 'default' ? '<button class="btn pri sm" id="s-perm">Ativar</button>' : ''}${perm === 'granted' ? '<button class="btn sm" id="s-test">Testar</button>' : ''}</div>
+    <label>Lembrete padrão das novas consultas</label>
+    <select id="s-rem">${REMIND.map(([v, l]) => `<option value="${v}" ${v == SETTINGS.defaultRemind ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <div class="hint">⚠️ Os lembretes do app aparecem quando ele estiver aberto ou em segundo plano. Para garantia total, use “📆 Agenda do celular” na consulta — o alarme fica salvo no calendário do telefone.</div>
+  </div>
+  <h2>Consultório</h2>
+  <div class="card">
+    <label style="margin-top:0">Nome usado nas mensagens</label><input id="s-clinic" value="${esc(SETTINGS.clinic)}">
+    <label>Chave Pix (para a etiqueta {pix})</label><input id="s-pix" value="${esc(SETTINGS.pix)}" placeholder="CPF, e-mail, telefone ou chave aleatória">
+    <label>Duração padrão da consulta</label>
+    <select id="s-dur">${[15, 20, 30, 40, 45, 60, 90, 120].map(m => `<option value="${m}" ${m == SETTINGS.defaultDuration ? 'selected' : ''}>${m} min</option>`).join('')}</select>
+    <label>Procedimentos (um por linha)</label><textarea id="s-procs" style="min-height:170px">${esc(SETTINGS.procedures.join('\n'))}</textarea>
+    <button class="btn pri block" id="s-save" style="margin-top:12px">Salvar ajustes</button>
+  </div>
+  <h2>Backup (cópia de segurança)</h2>
+  <div class="card">
+    <div class="small">Os dados ficam guardados <b>somente neste celular</b>. Faça backup com frequência (ex.: toda semana) e guarde o arquivo no Google Drive, e-mail ou WhatsApp.</div>
+    <div class="small muted" style="margin-top:6px">Último backup: ${lastBk ? new Date(+lastBk).toLocaleString('pt-BR') : 'nunca'}</div>
+    <div class="btns"><button class="btn pri" id="s-exp">⬇️ Fazer backup</button><label class="btn">⬆️ Restaurar<input type="file" id="s-imp" accept=".json,application/json" style="display:none"></label></div>
+  </div>
+  <h2>Sobre</h2>
+  <div class="card small muted">Agendamentos da Evilly · v1.0<br>${PATIENTS.length} pacientes · ${APPTS.length} consultas<br><span id="s-store"></span></div>`;
+  const si = $('#s-install', app); if (si) si.onclick = async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; render(); };
+  const sp = $('#s-perm', app); if (sp) sp.onclick = async () => { await ensureNotifyPermission(); render(); };
+  const st = $('#s-test', app); if (st) st.onclick = () => notify('🦷 Teste de lembrete', 'As notificações estão funcionando!', 'test');
+  $('#s-save', app).onclick = async () => {
+    SETTINGS.defaultRemind = +$('#s-rem', app).value; SETTINGS.clinic = $('#s-clinic', app).value.trim(); SETTINGS.pix = $('#s-pix', app).value.trim();
+    SETTINGS.defaultDuration = +$('#s-dur', app).value;
+    const pr = $('#s-procs', app).value.split('\n').map(s => s.trim()).filter(Boolean); if (pr.length) SETTINGS.procedures = pr;
+    await saveSettings(); toast('Ajustes salvos ✓');
+  };
+  $('#s-rem', app).onchange = async e => { SETTINGS.defaultRemind = +e.target.value; await saveSettings(); };
+  $('#s-exp', app).onclick = exportBackup;
+  $('#s-imp', app).onchange = e => { const f = e.target.files[0]; if (f) importBackup(f); e.target.value = ''; };
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const el = $('#s-store'); if (el) el.textContent = `Espaço usado: ${fmtSize(e.usage || 0)}`; });
+}
+
+/* ================= Backup ================= */
+const blobToB64 = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+async function exportBackup() {
+  toast('Gerando backup...');
+  const files = await DB.all('files');
+  const out = { app: 'agendamentos-evilly', version: 1, exportedAt: new Date().toISOString(), settings: SETTINGS, patients: PATIENTS, appointments: APPTS, files: [] };
+  for (const f of files) out.files.push({ ...f, blob: undefined, data: await blobToB64(f.blob) });
+  const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
+  const name = `backup-evilly-${todayStr()}.json`;
+  const file = new File([blob], name, { type: 'application/json' });
+  localStorage.setItem('evilly-last-backup', Date.now());
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Backup Agendamentos da Evilly' }); render(); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  render(); toast('Backup salvo em Downloads ✓');
+}
+async function importBackup(f) {
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.app !== 'agendamentos-evilly') throw new Error('Arquivo não é um backup deste app');
+    if (!await confirmBox(`Restaurar backup de ${new Date(data.exportedAt).toLocaleString('pt-BR')}?\n\n${data.patients.length} pacientes, ${data.appointments.length} consultas.\n\nOs dados atuais deste celular serão SUBSTITUÍDOS.`)) return;
+    for (const s of ['patients', 'appointments', 'files']) await DB.clear(s);
+    for (const p of data.patients) await DB.put('patients', p);
+    for (const a of data.appointments) await DB.put('appointments', a);
+    for (const x of data.files) { const blob = await (await fetch(x.data)).blob(); const { data: _, ...rest } = x; await DB.put('files', { ...rest, blob }); }
+    if (data.settings) { SETTINGS = Object.assign(SETTINGS, data.settings); await saveSettings(); }
+    await reload(); render(); toast('Backup restaurado ✓');
+  } catch (e) { alert('Não foi possível restaurar: ' + e.message); }
+}
+
+/* ================= Roteamento ================= */
+async function render() {
+  const h = location.hash || '#agenda';
+  const tab = h.startsWith('#paciente') ? 'pacientes' : h.slice(1);
+  $$('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.t === tab));
+  const app = $('#app');
+  const d = new Date(); $('#hsub').textContent = `${WDL[d.getDay()]}, ${d.getDate()} de ${MES[d.getMonth()]}`;
+  $('#fab').style.display = ['agenda', 'pacientes'].includes(tab) || h.startsWith('#paciente/') ? '' : 'none';
+  if (h.startsWith('#paciente/')) return viewPatient(app, h.split('/')[1]);
+  if (tab === 'pacientes') return viewPatients(app);
+  if (tab === 'mensagens') return viewMessages(app);
+  if (tab === 'ajustes') return viewSettings(app);
+  return viewAgenda(app);
+}
+window.addEventListener('hashchange', () => { window.scrollTo(0, 0); render(); });
+$('#quick-patient').onclick = () => patientForm().then(p => { if (p) location.hash = '#paciente/' + p.id; });
+$('#fab').onclick = () => {
+  const h = location.hash;
+  if (h === '#pacientes') patientForm();
+  else if (h.startsWith('#paciente/')) apptForm(null, h.split('/')[1]);
+  else apptForm();
+};
+
+/* ================= Instalação (PWA) ================= */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash === '#ajustes') render(); });
+
+/* ================= Início ================= */
+(async () => {
+  await DB.open(); await loadSettings(); await reload(); render();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e));
+    navigator.serviceWorker.addEventListener('message', e => { if (e.data === 'check') checkReminders(); });
+  }
+  checkReminders(); setInterval(checkReminders, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { reload().then(() => { render(); checkReminders(); }); } });
+})();
+</script>
+</body>
+</html>

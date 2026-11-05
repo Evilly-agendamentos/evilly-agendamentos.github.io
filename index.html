@@ -600,7 +600,7 @@ function shareSheet(title, build) {
     fill();
     $$('#sh-mode button', el).forEach(b => b.onclick = () => { $$('#sh-mode button', el).forEach(x => x.classList.toggle('on', x === b)); full = b.dataset.v === '1'; fill(); });
     $$('[data-c]', el).forEach(b => b.onclick = () => { const c = contacts.find(x => x.id === b.dataset.c); openWA(c.phone, ta.value); close(); });
-    $('#sh-pick', el).onclick = () => { window.open('https://wa.me/?text=' + encodeURIComponent(ta.value), '_blank'); close(); };
+    $('#sh-pick', el).onclick = () => { launchWA('', ta.value); close(); };
     $('#sh-copy', el).onclick = async () => { try { await navigator.clipboard.writeText(ta.value); toast('Copiado ✓'); } catch { toast('Não foi possível copiar'); } };
   });
 }
@@ -616,10 +616,25 @@ function fillTemplate(text, p, a) {
   return text.replace(/\{(\w+)\}/g, (m, k) => k in map ? map[k] : m);
 }
 function waNumber(phone) { let d = digits(phone); if (d.startsWith('0')) d = d.replace(/^0+/, ''); if (d.length <= 11) d = '55' + d; return d; }
+// No celular chama o app do WhatsApp direto (whatsapp://), sem abrir aba do navegador
+// que ficava em branco ao voltar. No computador usa o WhatsApp Web numa aba nova.
+const IS_MOBILE = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+function launchWA(phone, text) {
+  const num = phone ? waNumber(phone) : '';
+  const q = text ? 'text=' + encodeURIComponent(text) : '';
+  const web = `https://wa.me/${num}${q ? '?' + q : ''}`;
+  if (!IS_MOBILE) { window.open(web, '_blank'); return; }
+  const app = `whatsapp://send?${num ? 'phone=' + num + (q ? '&' : '') : ''}${q}`;
+  let left = false;
+  const onHide = () => { if (document.hidden) left = true; };
+  document.addEventListener('visibilitychange', onHide);
+  const a = document.createElement('a'); a.href = app; document.body.appendChild(a); a.click(); a.remove();
+  // se o WhatsApp não abriu (não instalado), usa o link normal
+  setTimeout(() => { document.removeEventListener('visibilitychange', onHide); if (!left && !document.hidden) location.href = web; }, 1800);
+}
 function openWA(phone, text) {
   if (digits(phone).length < 10) return toast('Paciente sem telefone válido');
-  const url = `https://wa.me/${waNumber(phone)}${text ? '?text=' + encodeURIComponent(text) : ''}`;
-  window.open(url, '_blank');
+  launchWA(phone, text);
 }
 function waPreview(p, text) {
   openSheet('Mensagem para ' + firstName(p.name), `
